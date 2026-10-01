@@ -96,15 +96,28 @@ function listaMapaHtml() {
   const P = pontosMapa();
   const offline = !navigator.onLine ? '<div class="aviso alerta" style="margin-top:4px">Sem internet: o fundo do mapa pode não aparecer, mas a lista e os botões de navegação funcionam (com mapas offline baixados no Google/Apple Maps).</div>' : '';
   if (P.rota) {
+    const info = infoRota(P.dia);
+    const r = info.rota;
+    const tempo = s => { const mm = Math.max(1, Math.round(s / 60)); return mm < 60 ? mm + ' min' : Math.floor(mm / 60) + ' h ' + String(mm % 60).padStart(2, '0'); };
+    const km = mt => (mt / 1000).toFixed(mt < 10000 ? 1 : 0).replace('.', ',') + ' km';
+    const status = r ? `Rota pelas ruas · ${esc(r.fonte || 'OpenStreetMap')}` : !navigator.onLine ? 'Sem internet: linha reta. A rota aparece quando houver sinal.'
+      : S.ui.erroRota ? esc(S.ui.erroRota) : info.pontos.length > 1 ? 'Calculando a rota pelas ruas…' : '';
     const cd = calc().atividades;
+    const google = linksGoogleRota(info);
     return `<div class="secao-topo" style="margin-top:0"><b>${esc(fmtDia(P.dia))}${cidadeDoDia(P.dia) ? ' · ' + esc(cidadeDoDia(P.dia).Nome) : ''}</b><span class="peq">${plural(P.lista.length, 'parada')}</span></div>${offline}
-      ${P.hosp ? itemHtml({ a: 'mapa-foco', id: P.hosp.ID, ic: '🛏️', t: esc(P.hosp.Nome), s: 'hospedagem' }) : ''}
-      ${P.lista.length ? `<div class="lista">${P.lista.map((x, i) => {
-        const d = cd[x.a.ID] || {};
-        return itemHtml({ a: 'mapa-foco', id: x.l.ID, ic: `<b>${x.n}</b>`, cor: corDia(P.dia), t: esc(x.a.HoraInicio || '') + ' ' + esc(x.a.Titulo), s: esc(x.l.Nome) + (d.min && i < P.lista.length - 1 ? ` · até a próxima ~${d.min} min ${esc(d.modo)}` : ''),
+      <div class="seg" style="margin-bottom:8px">${[['a pé', '🚶 A pé'], ['carro', '🚐 Carro'], ['bicicleta', '🚲 Bicicleta']].map(x => `<button class="${info.modo === x[0] ? 'on' : ''}" data-a="rota-modo" data-m="${x[0]}">${x[1]}</button>`).join('')}</div>
+      ${info.temHosp ? `<label class="check" style="min-height:36px"><input type="checkbox" data-a="rota-hosp" ${info.usarHosp ? 'checked' : ''}><span class="peq">Começar na hospedagem</span></label>` : ''}
+      ${r ? `<div class="cartao" style="padding:10px 12px;margin-bottom:8px"><b>${km(r.distancia)} · ${tempo(r.duracao)} ${esc(info.modo)}</b><div class="mpeq">${status} · sem contar o tempo nas paradas</div></div>` : `<p class="mpeq">${status}</p>`}
+      ${P.lista.length ? `<div class="lista">${info.seq.map((x, i) => {
+        const t = r && r.trechos[i];
+        const est = !r && x.a && cd[x.a.ID] ? cd[x.a.ID] : null;
+        const prox = i < info.seq.length - 1 ? (t ? ` · até a próxima: ${tempo(t.s)} (${km(t.m)})` : est && est.min ? ` · até a próxima ~${est.min} min (estimativa)` : '') : '';
+        if (x.hosp) return itemHtml({ a: 'mapa-foco', id: x.l.ID, ic: '🛏️', t: esc(x.l.Nome), s: 'saída da hospedagem' + prox });
+        return itemHtml({ a: 'mapa-foco', id: x.l.ID, ic: `<b>${P.lista.findIndex(y => y.a.ID === x.a.ID) + 1}</b>`, cor: corDia(P.dia), t: esc(x.a.HoraInicio || '') + ' ' + esc(x.a.Titulo), s: esc(x.l.Nome) + prox,
           v: linkRota(x.l) ? `<a class="btn" style="min-height:40px;padding:0 12px" href="${linkRota(x.l)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Ir</a>` : '' });
       }).join('')}</div>` : vazio('Nenhuma atividade com lugar (e coordenadas) neste dia.')}
-      <p class="mpeq">Linha reta entre as paradas; tempos estimados. O trajeto real abre no app de mapas.</p>`;
+      ${google.length ? `<div class="botoes" style="margin-top:4px">${google.map((u, k) => `<a class="btn prim" href="${u}" target="_blank" rel="noopener">${google.length > 1 ? 'Google Maps · parte ' + (k + 1) : 'Abrir a rota no Google Maps'}</a>`).join('')}</div>
+        <p class="mpeq">${google.length > 1 ? 'O Google Maps no celular aceita poucas paradas por link, por isso a rota foi dividida. ' : ''}No Google Maps você vê o trânsito e pode trocar para transporte público em cada trecho.</p>` : ''}`;
   }
   return `<div class="secao-topo" style="margin-top:0"><b>${plural(P.lista.length, 'lugar', 'lugares')}${estadoMapa().perto && MAPA.pos ? ' · mais perto primeiro' : ''}</b>${podeEditar() ? '<button class="btn" style="min-height:40px" data-a="novo-lugar">+ Lugar</button>' : ''}</div>${offline}
     ${P.lista.length ? `<div class="lista">${P.lista.map(x => itemHtml({ a: 'mapa-foco', id: x.l.ID, ic: ICONE_TIPO[x.l.Tipo] || '📍', cor: x.dia ? corDia(x.dia) : null,
@@ -156,7 +169,10 @@ function garantirCamadaRota() {
   const map = MAPA.map;
   if (!map || !map.isStyleLoaded()) return;
   if (!map.getSource('rota')) map.addSource('rota', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-  if (!map.getLayer('rota-linha')) map.addLayer({ id: 'rota-linha', type: 'line', source: 'rota', paint: { 'line-color': ['get', 'cor'], 'line-width': 4, 'line-dasharray': [1.5, 1.2], 'line-opacity': 0.85 } });
+  // Rota pelas ruas: linha cheia com contorno branco. Sem rota (sem internet): linha reta tracejada.
+  if (!map.getLayer('rota-contorno')) map.addLayer({ id: 'rota-contorno', type: 'line', source: 'rota', filter: ['==', ['get', 'tipo'], 'rota'], layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#ffffff', 'line-width': 8, 'line-opacity': 0.9 } });
+  if (!map.getLayer('rota-linha')) map.addLayer({ id: 'rota-linha', type: 'line', source: 'rota', filter: ['==', ['get', 'tipo'], 'rota'], layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': ['get', 'cor'], 'line-width': 5 } });
+  if (!map.getLayer('rota-reta')) map.addLayer({ id: 'rota-reta', type: 'line', source: 'rota', filter: ['==', ['get', 'tipo'], 'reta'], paint: { 'line-color': ['get', 'cor'], 'line-width': 3, 'line-dasharray': [1.5, 1.2], 'line-opacity': 0.8 } });
 }
 
 /** Atualiza linha da rota e marcadores; na primeira vez, enquadra os pontos. */
@@ -166,7 +182,14 @@ function desenharPontos(enquadrar) {
   garantirCamadaRota();
   const P = pontosMapa();
   const feats = [];
-  if (P.rota && P.lista.length > 1) feats.push({ type: 'Feature', properties: { cor: corDia(P.dia) }, geometry: { type: 'LineString', coordinates: P.lista.map(x => [Number(x.l.Lng), Number(x.l.Lat)]) } });
+  if (P.rota) {
+    const info = infoRota(P.dia);
+    if (info.rota) feats.push({ type: 'Feature', properties: { cor: corDia(P.dia), tipo: 'rota' }, geometry: { type: 'LineString', coordinates: info.rota.coords } });
+    else if (info.pontos.length > 1) {
+      feats.push({ type: 'Feature', properties: { cor: corDia(P.dia), tipo: 'reta' }, geometry: { type: 'LineString', coordinates: info.pontos } });
+      buscarRota(info).then(r => { if (r && estadoMapa().rota && MAPA.map) { desenharPontos(false); const c = $('#mapa-lista-conteudo'); if (c) c.innerHTML = listaMapaHtml(); } });
+    }
+  }
   if (map.getSource('rota')) map.getSource('rota').setData({ type: 'FeatureCollection', features: feats });
   desenharMarcadores();
   if (S.ui.focoLugar) { const id = S.ui.focoLugar; S.ui.focoLugar = null; focarLugar(id, true); return; }
@@ -350,3 +373,87 @@ window.addEventListener('hashchange', () => {
     if (MAPA.map) { try { MAPA.map.remove(); } catch (e) { /* ok */ } MAPA.map = null; MAPA.ok = false; MAPA.eu = null; }
   }
 });
+
+/* ============================== rota do dia pelas ruas ============================== */
+// Rotas calculadas ficam guardadas no aparelho (e na planilha): sem internet, a última rota continua aparecendo.
+let ROTAS = {};
+async function carregarRotas() { try { ROTAS = (await idb.get('kv', 'rotas')) || {}; } catch (e) { ROTAS = {}; } }
+function guardarRota(chave, r) {
+  ROTAS[chave] = Object.assign({ em: Date.now() }, r);
+  const ks = Object.keys(ROTAS);
+  if (ks.length > 80) ks.sort((a, b) => ROTAS[a].em - ROTAS[b].em).slice(0, ks.length - 80).forEach(k => delete ROTAS[k]);
+  idb.set('kv', 'rotas', ROTAS).catch(() => { });
+}
+
+/** Paradas do dia em ordem (opcionalmente saindo da hospedagem), modo e rota guardada, se houver. */
+function infoRota(dia) {
+  const ats = atividadesDoDia(dia).filter(a => { const l = ach('Lugares', a.LugarID); return l && l.Lat !== '' && l.Lat !== undefined; });
+  const h = hospedagemDoDia(dia);
+  const hosp = h && h.lugar && h.lugar.Lat !== '' && h.lugar.Lat !== undefined ? h.lugar : null;
+  const pref = (S.ui.rotaHosp || {})[dia];
+  const usarHosp = !!hosp && pref !== false;
+  const seq = (usarHosp ? [{ l: hosp, hosp: true }] : []).concat(ats.map(a => ({ l: ach('Lugares', a.LugarID), a })));
+  const pontos = seq.map(x => [Number(x.l.Lng), Number(x.l.Lat)]);
+  let modo = (S.ui.modoRota || {})[dia];
+  if (!modo) {
+    // Automático: a pé se todos os trechos forem curtos; senão, carro
+    let maior = 0;
+    for (let i = 1; i < pontos.length; i++) maior = Math.max(maior, N_distKm(pontos[i - 1][1], pontos[i - 1][0], pontos[i][1], pontos[i][0]));
+    modo = maior <= 1.5 ? 'a pé' : 'carro';
+  }
+  const chave = modo + '|' + pontos.map(p => p[0].toFixed(5) + ',' + p[1].toFixed(5)).join(';');
+  return { dia, seq, pontos, modo, chave, usarHosp, temHosp: !!hosp, rota: pontos.length > 1 ? (ROTAS[chave] || null) : null };
+}
+
+const _pedindoRota = {};
+async function buscarRota(info) {
+  if (info.pontos.length < 2 || info.rota || !navigator.onLine || _pedindoRota[info.chave] || !S.sessao) return null;
+  _pedindoRota[info.chave] = true;
+  try {
+    const r = await api('rota', { pontos: info.pontos, modo: info.modo }, { timeout: 45000 });
+    S.ui.erroRota = null;
+    guardarRota(info.chave, r);
+    return r;
+  } catch (e) { S.ui.erroRota = 'Rota indisponível agora (' + e.message + '). Mostrando a linha reta.'; return null; }
+  finally { delete _pedindoRota[info.chave]; }
+}
+
+/** Tempo até a próxima parada para o roteiro: usa a rota guardada; se não houver, a estimativa em linha reta. */
+function trechoApos(dia, atividadeId) {
+  const info = infoRota(dia);
+  const i = info.seq.findIndex(x => x.a && x.a.ID === atividadeId);
+  if (info.rota && i >= 0 && i < info.seq.length - 1 && info.rota.trechos[i]) {
+    const t = info.rota.trechos[i];
+    return { min: Math.max(1, Math.round(t.s / 60)), km: Math.round(t.m / 100) / 10, modo: info.modo, fonte: 'rota' };
+  }
+  const d = calc().atividades[atividadeId] || {};
+  return d.min ? { min: d.min, km: d.km, modo: d.modo, fonte: 'estimativa' } : null;
+}
+
+/** Links do Google Maps com todas as paradas (até 3 paradas intermediárias no celular e 9 no computador; acima disso, divide). */
+function linksGoogleRota(info) {
+  const pts = info.seq.map(x => x.l.Lat + ',' + x.l.Lng);
+  if (pts.length < 2) return [];
+  const max = /Mobi|Android|iPhone|iPad/.test(navigator.userAgent) ? 3 : 9;
+  const tm = { 'a pé': 'walking', carro: 'driving', bicicleta: 'bicycling' }[info.modo] || 'driving';
+  const out = [];
+  for (let ini = 0; ini < pts.length - 1; ini += max + 1) {
+    const parte = pts.slice(ini, ini + max + 2);
+    const meio = parte.slice(1, -1);
+    out.push('https://www.google.com/maps/dir/?api=1&origin=' + encodeURIComponent(parte[0]) + '&destination=' + encodeURIComponent(parte[parte.length - 1]) +
+      '&travelmode=' + tm + (meio.length ? '&waypoints=' + encodeURIComponent(meio.join('|')) : ''));
+  }
+  return out;
+}
+
+AC['rota-modo'] = el => {
+  const dia = diaDaRota(estadoMapa());
+  (S.ui.modoRota = S.ui.modoRota || {})[dia] = el.dataset.m;
+  S.ui.erroRota = null;
+  TELAS.mapa.atualizar();
+};
+AC['rota-hosp'] = el => {
+  const dia = diaDaRota(estadoMapa());
+  (S.ui.rotaHosp = S.ui.rotaHosp || {})[dia] = el.checked;
+  TELAS.mapa.atualizar(); desenharPontos(true);
+};

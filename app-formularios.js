@@ -445,40 +445,78 @@ function formLugar(id, pre) {
 }
 
 /* ============================== documento ============================== */
+/**
+ * Documento ou link. vinculo: { vinculoTipo, vinculoId, titulo, tipo, vis, modo: 'arquivo'|'link' }
+ * Arquivo precisa de internet (vai para o Drive). Link pode ser salvo sem internet (entra na fila).
+ */
 function formAnexo(vinculo) {
-  if (!navigator.onLine) { toast('Enviar documentos precisa de internet.'); return; }
   vinculo = vinculo || {};
-  abrirPainel({
-    titulo: 'Novo documento',
-    html: `<label class="campo"><span>Arquivo (foto ou PDF, até 10 MB) <b class="obr">*</b></span><input type="file" id="anx-arq" accept="image/*,application/pdf"></label>
+  let modo = vinculo.modo || 'arquivo';
+  const corpo = () => `<div class="seg" id="anx-modo">${[['arquivo', '📎 Arquivo'], ['link', '🔗 Link']].map(x => `<button type="button" data-m="${x[0]}" class="${modo === x[0] ? 'on' : ''}">${x[1]}</button>`).join('')}</div>
+      ${modo === 'arquivo' ? `<label class="campo"><span>Arquivo (foto, print ou PDF, até 10 MB) <b class="obr">*</b></span><input type="file" id="anx-arq" accept="image/*,application/pdf"></label>
+        ${!navigator.onLine ? '<div class="aviso alerta">Enviar arquivo precisa de internet. Sem sinal, salve o link ou tente mais tarde.</div>' : ''}`
+      : `<label class="campo"><span>Link <b class="obr">*</b></span><input id="anx-url" type="url" inputmode="url" placeholder="https://…" autocomplete="off"></label>
+        <div class="mpeq" style="margin:-8px 0 12px">Ex.: ingresso no site da atração, voucher da GetYourGuide, página de reserva. Abrir o link precisa de internet; para usar sem sinal, anexe também o PDF ou um print.</div>`}
       ${campoHtml(ESQUEMA.Anexos.porNome.Titulo, vinculo.titulo || '')}
-      ${campoHtml(ESQUEMA.Anexos.porNome.Tipo, vinculo.tipo || 'voucher')}
+      ${campoHtml(ESQUEMA.Anexos.porNome.Tipo, vinculo.tipo || (modo === 'link' ? 'link' : 'voucher'))}
       <div class="campo"><span>Quem pode ver</span><div class="seg" id="anx-vis">${['grupo', 'família', 'pessoal'].map(v => `<button type="button" data-v="${v}" class="${v === (vinculo.vis || 'grupo') ? 'on' : ''}">${v === 'grupo' ? 'Todos' : v === 'família' ? 'Minha família' : 'Só eu'}</button>`).join('')}</div>
         <div class="mpeq">Passaporte e documentos pessoais: use "Minha família" ou "Só eu". Atenção: o dono da planilha no Google Drive consegue abrir todos os arquivos.</div></div>
       ${campoHtml(ESQUEMA.Anexos.porNome.Validade, '')}
-      <label class="check"><input type="checkbox" id="anx-off" checked><span>Guardar neste aparelho (abre sem internet)</span></label>`,
-    rodape: '<div class="falta" id="anx-falta"></div><button class="btn prim bloco" data-a="anx-enviar">Enviar</button>',
+      ${modo === 'arquivo' ? '<label class="check"><input type="checkbox" id="anx-off" checked><span>Guardar neste aparelho (abre sem internet)</span></label>' : ''}`;
+  abrirPainel({
+    titulo: vinculo.tituloPainel || 'Novo documento ou link',
+    render: corpo,
+    rodape: '<div class="falta" id="anx-falta"></div><button class="btn prim bloco" data-a="anx-enviar">Salvar</button>',
     depois: el => {
+      $$('#anx-modo button', el).forEach(b => b.onclick = () => {
+        const t = el.querySelector('[data-campo="Titulo"]').value;
+        modo = b.dataset.m; vinculo.titulo = t; vinculo.tipo = modo === 'link' ? 'link' : (vinculo.tipo === 'link' ? 'voucher' : vinculo.tipo);
+        pintarPainel();
+      });
       $$('#anx-vis button', el).forEach(b => b.onclick = () => { $$('#anx-vis button', el).forEach(x => x.classList.toggle('on', x === b)); });
-      $('#anx-arq', el).onchange = e => { const f = e.target.files[0]; const t = el.querySelector('[data-campo="Titulo"]'); if (f && !t.value) t.value = f.name.replace(/\.[^.]+$/, ''); };
+      const a = $('#anx-arq', el);
+      if (a) a.onchange = e => { const f = e.target.files[0]; const t = el.querySelector('[data-campo="Titulo"]'); if (f && !t.value) t.value = f.name.replace(/\.[^.]+$/, ''); };
     }
   });
   AC['anx-enviar'] = async el => {
-    const arq = $('#anx-arq').files[0];
     const titulo = $('[data-campo="Titulo"]').value.trim();
+    const vis = $('#anx-vis .on').dataset.v;
+    const base = { Titulo: titulo, Tipo: $('[data-campo="Tipo"]').value, Visibilidade: vis, FamiliaID: minhaFamilia(),
+      VinculoTipo: vinculo.vinculoTipo || '', VinculoID: vinculo.vinculoId || '', Validade: $('[data-campo="Validade"]').value };
+    if (modo === 'link') {
+      let url = ($('#anx-url').value || '').trim();
+      if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+      if (!url || !titulo) { $('#anx-falta').textContent = 'Informe o link e um título.'; return; }
+      if (!/^https?:\/\/\S+\.\S+/i.test(url)) { $('#anx-falta').textContent = 'Link inválido.'; return; }
+      salvar('Anexos', null, Object.assign(base, { Url: url }), { msg: 'Link salvo' });
+      fecharPainel();
+      return;
+    }
+    const arq = $('#anx-arq').files[0];
     if (!arq || !titulo) { $('#anx-falta').textContent = 'Escolha o arquivo e dê um título.'; return; }
+    if (!navigator.onLine) { $('#anx-falta').textContent = 'Sem internet: não dá para enviar o arquivo agora.'; return; }
     el.disabled = true; el.textContent = 'Enviando…';
     try {
       const up = await enviarArquivo(arq);
-      const vis = $('#anx-vis .on').dataset.v;
-      const l = salvar('Anexos', null, { Titulo: titulo, Tipo: $('[data-campo="Tipo"]').value, Visibilidade: vis, FamiliaID: minhaFamilia(), NomeArquivo: up.nome, Mime: up.mime, Tamanho: up.tamanho,
-        VinculoTipo: vinculo.vinculoTipo || '', VinculoID: vinculo.vinculoId || '', Validade: $('[data-campo="Validade"]').value }, { extra: { arquivoId: up.arquivoId }, msg: 'Documento enviado' });
+      const l = salvar('Anexos', null, Object.assign(base, { NomeArquivo: up.nome, Mime: up.mime, Tamanho: up.tamanho }), { extra: { arquivoId: up.arquivoId }, msg: 'Documento enviado' });
       if ($('#anx-off').checked) { await idb.set('arquivos', l.ID, { nome: up.nome, mime: up.mime, base64: await arquivoParaB64(arq) }); S.offline.add(l.ID); }
       fecharPainel();
       mudou();
-    } catch (e) { el.disabled = false; el.textContent = 'Enviar'; $('#anx-falta').textContent = e.message; }
+    } catch (e) { el.disabled = false; el.textContent = 'Salvar'; $('#anx-falta').textContent = e.message; }
   };
 }
+
+/** Lista de anexos e links de um item (atividade, lugar, reserva) para o painel de detalhe. */
+function anexosDe(tipo, id, extra) {
+  const l = daV('Anexos').filter(a => a.Oculto !== 'sim' && ((a.VinculoTipo === tipo && a.VinculoID === id) || (extra && a.VinculoTipo === extra.tipo && a.VinculoID === extra.id)));
+  return `<div class="secao-topo"><div class="rotulo">Vouchers, ingressos e links</div>${podeEditar() ? `<div class="botoes" style="flex:none"><button class="btn" style="min-height:40px;padding:0 12px" data-a="anexar-a" data-t="${tipo}" data-id="${id}" data-m="arquivo">+ Arquivo</button><button class="btn" style="min-height:40px;padding:0 12px" data-a="anexar-a" data-t="${tipo}" data-id="${id}" data-m="link">+ Link</button></div>` : ''}</div>
+    ${l.length ? `<div class="lista">${l.map(docItem).join('')}</div>` : '<p class="peq">Guarde aqui o ingresso, o voucher ou o link da reserva. Os arquivos das atividades dos próximos 3 dias ficam no aparelho automaticamente.</p>'}`;
+}
+AC['anexar-a'] = el => {
+  const t = el.dataset.t, id = el.dataset.id;
+  const item = t === 'atividade' ? ach('Atividades', id) : t === 'lugar' ? ach('Lugares', id) : ach('Reservas', id);
+  formAnexo({ vinculoTipo: t, vinculoId: id, modo: el.dataset.m, titulo: item ? (item.Titulo || item.Nome) : '', tipo: el.dataset.m === 'link' ? 'link' : (t === 'reserva' && item && item.Tipo === 'voo' ? 'passagem' : 'ingresso') });
+};
 
 /* ============================== pessoa + participante ============================== */
 function formPessoa(partId) {

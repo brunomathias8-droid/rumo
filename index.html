@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Rumo · viagem em grupo</title>
 <meta name="description" content="Roteiro, mapa, reservas, contas e documentos da viagem — para a família toda, até sem internet.">
-<meta name="theme-color" content="#14213d">
+<meta name="theme-color" content="#f6f7f9">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -15,48 +15,70 @@
 <link rel="apple-touch-icon" href="icones/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
+/* ---------- Paletas (Ajustes → Aparência). Cada paleta define tons claros e a cor de destaque do modo escuro ---------- */
 :root{
-  --papel:#f5f0e6; --cartao:#fffdf8; --cartao2:#efe7d8; --tinta:#14213d; --tinta2:#3d4a63; --tinta3:#5b6478;
-  --linha:#ddd3c2; --acao:#c2410c; --acao-txt:#fff; --acao-suave:#fbe3d6;
+  --p-papel:#f6f7f9; --p-cartao:#ffffff; --p-cartao2:#eef0f3; --p-tinta:#111827; --p-tinta2:#4b5563; --p-tinta3:#6b7280; --p-linha:#e3e6ea;
+  --p-acao:#2563eb; --p-acao-suave:#dbe7fd; --p-acao-e:#60a5fa; --p-acao-e-txt:#0b1220;
+}
+:root[data-paleta="caderno"]{ --p-papel:#f5f0e6; --p-cartao:#fffdf8; --p-cartao2:#efe7d8; --p-tinta:#14213d; --p-tinta2:#3d4a63; --p-tinta3:#5b6478; --p-linha:#ddd3c2; --p-acao:#c2410c; --p-acao-suave:#fbe3d6; --p-acao-e:#fb923c; --p-acao-e-txt:#1b1206; }
+:root[data-paleta="oceano"]{ --p-papel:#f2f7f8; --p-cartao:#ffffff; --p-cartao2:#e3eef0; --p-tinta:#0f2a33; --p-tinta2:#3d5a63; --p-tinta3:#5f7a82; --p-linha:#d3e2e5; --p-acao:#0e7490; --p-acao-suave:#d4eef3; --p-acao-e:#22d3ee; --p-acao-e-txt:#06232b; }
+:root[data-paleta="floresta"]{ --p-papel:#f4f6f1; --p-cartao:#ffffff; --p-cartao2:#e7ece2; --p-tinta:#1c2a1f; --p-tinta2:#45564a; --p-tinta3:#66766a; --p-linha:#dbe2d5; --p-acao:#2f6b3f; --p-acao-suave:#dcebdf; --p-acao-e:#4ade80; --p-acao-e-txt:#0a2213; }
+:root[data-paleta="terracota"]{ --p-papel:#faf6f2; --p-cartao:#ffffff; --p-cartao2:#f1e8df; --p-tinta:#2a1d16; --p-tinta2:#5a4639; --p-tinta3:#7a675a; --p-linha:#e8ddd2; --p-acao:#b4532a; --p-acao-suave:#f6dfd3; --p-acao-e:#fb923c; --p-acao-e-txt:#1f0f05; }
+:root[data-paleta="ameixa"]{ --p-papel:#f8f6fa; --p-cartao:#ffffff; --p-cartao2:#efe9f4; --p-tinta:#22172b; --p-tinta2:#54465f; --p-tinta3:#74667f; --p-linha:#e4dcea; --p-acao:#7e22ce; --p-acao-suave:#ece0f8; --p-acao-e:#c084fc; --p-acao-e-txt:#1d0b2e; }
+:root[data-paleta="grafite"]{ --p-papel:#f4f4f4; --p-cartao:#ffffff; --p-cartao2:#e9e9e9; --p-tinta:#111111; --p-tinta2:#444444; --p-tinta3:#666666; --p-linha:#dcdcdc; --p-acao:#111111; --p-acao-suave:#e5e5e5; --p-acao-e:#e5e5e5; --p-acao-e-txt:#111111; }
+:root[data-paleta="rosa"]{ --p-papel:#fbf6f7; --p-cartao:#ffffff; --p-cartao2:#f4e8eb; --p-tinta:#2b1a1f; --p-tinta2:#5e4950; --p-tinta3:#7d6870; --p-linha:#ecdde1; --p-acao:#be185d; --p-acao-suave:#fbe1ec; --p-acao-e:#f472b6; --p-acao-e-txt:#2b0716; }
+
+/* ---------- Fontes (Ajustes → Aparência). Padrão: a fonte do sistema (SF no iPhone, Roboto no Android) ---------- */
+:root{ --fonte:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; --titulo:var(--fonte); --peso-titulo:700; --espaco-titulo:-.015em; }
+:root[data-fonte="inter"]{ --fonte:"Inter",-apple-system,"Segoe UI",Roboto,Arial,sans-serif; }
+:root[data-fonte="plex"]{ --fonte:"IBM Plex Sans",-apple-system,"Segoe UI",Roboto,Arial,sans-serif; --peso-titulo:600; }
+:root[data-fonte="source"]{ --fonte:"Source Sans 3",-apple-system,"Segoe UI",Roboto,Arial,sans-serif; }
+:root[data-fonte="classica"]{ --titulo:"Source Serif 4",Georgia,"Times New Roman",serif; --espaco-titulo:0; }
+:root[data-fonte="editorial"]{ --titulo:"Fraunces",Georgia,"Times New Roman",serif; }
+
+:root{
+  --papel:var(--p-papel); --cartao:var(--p-cartao); --cartao2:var(--p-cartao2); --tinta:var(--p-tinta); --tinta2:var(--p-tinta2); --tinta3:var(--p-tinta3);
+  --linha:var(--p-linha); --acao:var(--p-acao); --acao-txt:#fff; --acao-suave:var(--p-acao-suave);
   --ok:#15803d; --ok-suave:#dcf2e3; --alerta:#a16207; --alerta-suave:#fdf0cc; --erro:#b91c1c; --erro-suave:#fbe1e1; --info:#1d4ed8; --info-suave:#e0e8fb;
-  --sombra:0 1px 2px rgba(20,33,61,.08),0 6px 20px rgba(20,33,61,.07);
+  --sombra:0 1px 2px rgba(17,24,39,.06),0 4px 14px rgba(17,24,39,.06);
   --raio:16px; --raio-p:10px; --borda:1px;
-  --fonte:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  --titulo:"Fraunces",Georgia,"Times New Roman",serif; --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Roboto Mono",monospace;
   --barra:68px; --topo:56px;
   --sb:env(safe-area-inset-bottom,0px); --st:env(safe-area-inset-top,0px);
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-tema="claro"]):not([data-tema="sol"]){
-    --papel:#0f141d; --cartao:#182031; --cartao2:#202a3e; --tinta:#f1ece2; --tinta2:#c3cad6; --tinta3:#9aa3b3;
-    --linha:#2e3950; --acao:#fb923c; --acao-txt:#1b1206; --acao-suave:#3b2414;
+    --papel:#0f1115; --cartao:#181b22; --cartao2:#20242d; --tinta:#eceef1; --tinta2:#b8bec8; --tinta3:#8d94a0;
+    --linha:#2b303a; --acao:var(--p-acao-e); --acao-txt:var(--p-acao-e-txt); --acao-suave:color-mix(in srgb,var(--p-acao-e) 18%,#181b22);
     --ok:#4ade80; --ok-suave:#12301f; --alerta:#fbbf24; --alerta-suave:#33280d; --erro:#f87171; --erro-suave:#3a1717; --info:#93b4ff; --info-suave:#17244a;
     --sombra:0 1px 2px rgba(0,0,0,.4); color-scheme:dark;
   }
 }
 :root[data-tema="escuro"]{
-  --papel:#0f141d; --cartao:#182031; --cartao2:#202a3e; --tinta:#f1ece2; --tinta2:#c3cad6; --tinta3:#9aa3b3;
-  --linha:#2e3950; --acao:#fb923c; --acao-txt:#1b1206; --acao-suave:#3b2414;
+  --papel:#0f1115; --cartao:#181b22; --cartao2:#20242d; --tinta:#eceef1; --tinta2:#b8bec8; --tinta3:#8d94a0;
+  --linha:#2b303a; --acao:var(--p-acao-e); --acao-txt:var(--p-acao-e-txt); --acao-suave:color-mix(in srgb,var(--p-acao-e) 18%,#181b22);
   --ok:#4ade80; --ok-suave:#12301f; --alerta:#fbbf24; --alerta-suave:#33280d; --erro:#f87171; --erro-suave:#3a1717; --info:#93b4ff; --info-suave:#17244a;
   --sombra:0 1px 2px rgba(0,0,0,.4); color-scheme:dark;
 }
-/* Modo Sol: contraste máximo para ler na rua, sem cinzas claros */
+/* Modo Sol: contraste máximo para ler na rua, sem cinzas claros (mantém a cor de destaque da paleta) */
 :root[data-tema="sol"]{
   --papel:#ffffff; --cartao:#ffffff; --cartao2:#f2f2f2; --tinta:#000; --tinta2:#000; --tinta3:#1a1a1a;
-  --linha:#000; --acao:#9a3412; --acao-txt:#fff; --acao-suave:#ffe4d4; --ok:#0b5d24; --alerta:#6b3e00; --erro:#8a0f0f; --info:#0b2f9e;
+  --linha:#000; --acao-suave:#eeeeee; --ok:#0b5d24; --alerta:#6b3e00; --erro:#8a0f0f; --info:#0b2f9e;
   --borda:2px; --sombra:none;
 }
 :root[data-tema="sol"] body{font-weight:500}
-:root[data-letra="1"]{font-size:112.5%} :root[data-letra="2"]{font-size:125%}
+:root[data-letra="1"]{font-size:112.5%} :root[data-letra="2"]{font-size:125%} :root[data-letra="3"]{font-size:137.5%}
+.amostra-cor{display:flex;gap:4px;justify-content:center}
+.amostra-cor i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.12)}
+.opcao.on{outline:3px solid var(--acao);border-color:var(--acao)!important}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%}
 body{background:var(--papel);color:var(--tinta);font-family:var(--fonte);font-size:1rem;line-height:1.45;-webkit-font-smoothing:antialiased;overscroll-behavior-y:none}
 button,input,select,textarea{font:inherit;color:inherit}
 a{color:var(--info)}
-h1,h2,h3{font-family:var(--titulo);font-weight:700;letter-spacing:-.01em;margin:0}
+h1,h2,h3{font-family:var(--titulo);font-weight:var(--peso-titulo);letter-spacing:var(--espaco-titulo);margin:0}
 h1{font-size:1.6rem} h2{font-size:1.25rem} h3{font-size:1.05rem}
 .mono{font-family:var(--mono)}
 .peq{font-size:.85rem;color:var(--tinta2)} .mpeq{font-size:.78rem;color:var(--tinta3)}
@@ -83,7 +105,7 @@ main.largo{max-width:none;padding:0}
 .barra a .ic{font-size:1.35rem;line-height:1}
 .barra a.ativo{color:var(--acao)}
 .barra .mais-btn{position:relative}
-.fab{width:60px;height:60px;border-radius:20px;background:var(--acao);color:var(--acao-txt);border:0;font-size:2rem;line-height:1;box-shadow:0 6px 18px rgba(194,65,12,.35);
+.fab{width:60px;height:60px;border-radius:20px;background:var(--acao);color:var(--acao-txt);border:0;font-size:2rem;line-height:1;box-shadow:0 6px 18px color-mix(in srgb,var(--acao) 40%,transparent);
   margin:-22px auto 0;display:grid;place-items:center;cursor:pointer}
 @media (min-width:900px){ .barra{max-width:760px;margin:0 auto;border:var(--borda) solid var(--linha);border-bottom:0;border-radius:18px 18px 0 0} }
 
@@ -107,7 +129,7 @@ main.largo{max-width:none;padding:0}
 .etiqueta{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:.74rem;font-weight:700;background:var(--cartao2);color:var(--tinta2);white-space:nowrap}
 .etiqueta.ok{background:var(--ok-suave);color:var(--ok)} .etiqueta.alerta{background:var(--alerta-suave);color:var(--alerta)} .etiqueta.erro{background:var(--erro-suave);color:var(--erro)} .etiqueta.info{background:var(--info-suave);color:var(--info)}
 .pendente{opacity:.75} .pendente .t::after{content:" ⟳";font-size:.8em;color:var(--alerta)}
-.grande{font-family:var(--titulo);font-size:2.6rem;line-height:1;font-weight:700;letter-spacing:-.02em}
+.grande{font-family:var(--titulo);font-size:2.6rem;line-height:1;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .valor-pos{color:var(--ok)} .valor-neg{color:var(--erro)}
 .aviso{border-radius:var(--raio-p);padding:10px 12px;font-size:.9rem;margin-bottom:10px;border:var(--borda) solid}
 .aviso.alerta{background:var(--alerta-suave);border-color:var(--alerta);color:var(--tinta)} .aviso.erro{background:var(--erro-suave);border-color:var(--erro)} .aviso.info{background:var(--info-suave);border-color:var(--info)}
@@ -193,7 +215,7 @@ main.largo{max-width:none;padding:0}
 
 /* ---------- mapa ---------- */
 .mapa-casca{position:relative;height:calc(100dvh - var(--topo) - var(--st) - var(--barra) - var(--sb));min-height:360px}
-#mapa{position:absolute;inset:0;background:#e8e2d4}
+#mapa{position:absolute;inset:0;background:var(--cartao2)}
 .mapa-filtros{position:absolute;top:10px;left:10px;right:10px;z-index:3}
 .mapa-filtros .chips{padding-bottom:4px}
 .mapa-filtros .chip{box-shadow:var(--sombra)}

@@ -278,16 +278,17 @@ TELAS.plano = args => {
               <span class="t" style="display:block;font-weight:700">${a.Tipo === 'pausa' ? '☕ ' : ''}${esc(a.Titulo)}</span>
               ${l ? `<span class="s" style="display:block;font-size:.84rem;color:var(--tinta2)">${ICONE_TIPO[l.Tipo] || '📍'} ${esc(l.Nome)}</span>` : ''}
               ${quem.length ? `<span class="mpeq">só: ${quem.map(pessoaNome).map(esc).join(', ')}</span>` : ''}
+              ${(() => { const n = daV('Anexos').filter(x => x.Oculto !== 'sim' && ((x.VinculoTipo === 'atividade' && x.VinculoID === a.ID) || (x.VinculoTipo === 'lugar' && x.VinculoID === a.LugarID && a.LugarID))).length; return n ? `<span class="etiqueta" style="margin-top:4px">📎 ${n}</span>` : ''; })()}
             </button>
             ${podeEditar() ? '<span class="alca-arr" aria-label="Arrastar para reordenar">⠿</span>' : ''}
           </div>
-          ${dd.min && i < ats.length - 1 ? `<div class="deslocamento">${dd.modo === 'a pé' ? '🚶' : '🚐'} ~${dd.min} min · ${String(dd.km).replace('.', ',')} km (estimativa)</div>` : ''}
+          ${(() => { const tr = i < ats.length - 1 ? trechoApos(sel, a.ID) : null; return tr ? `<div class="deslocamento">${tr.modo === 'a pé' ? '🚶' : tr.modo === 'bicicleta' ? '🚲' : '🚐'} ${tr.fonte === 'rota' ? '' : '~'}${tr.min} min · ${String(tr.km).replace('.', ',')} km${tr.fonte === 'rota' ? ' pelas ruas' : ' (estimativa)'}</div>` : ''; })()}
         </div>`;
       }).join('')}</div>` : vazio('Nada marcado neste dia.')}
       ${podeEditar() ? `<div class="botoes"><button class="btn prim" data-a="nova-atividade" data-dia="${sel}">+ Atividade</button><button class="btn" data-a="nova-pausa" data-dia="${sel}">+ Pausa</button></div>` : ''}
       <div class="secao-topo"><div class="rotulo">Diário do dia</div><button class="btn" data-a="novo-diario" data-dia="${sel}" style="min-height:40px">Escrever</button></div>
       ${diarios.length ? diarios.map(dd => `<div class="cartao toque" data-a="editar-diario" data-id="${dd.ID}"><div class="cartao-topo">${avatar(dd.PessoaID, 32)}<div><div class="peq">${esc(pessoaNome(dd.PessoaID))}</div><div style="white-space:pre-wrap">${esc(dd.Texto)}</div></div></div></div>`).join('') : '<p class="peq">Um registro curto por dia vira memória da viagem.</p>'}`,
-    depois: el => { rolarFaixa(el); ativarArrastar(sel); const bm = $('[data-dia-mapa]', el); if (bm) bm.onclick = () => { S.ui.mapaFiltroDia = sel; }; }
+    depois: el => { rolarFaixa(el); ativarArrastar(sel); { const inf = infoRota(sel); if (!inf.rota && inf.pontos.length > 1) buscarRota(inf).then(r => { if (r && rotaAtual().nome === 'plano') render(true); }); } const bm = $('[data-dia-mapa]', el); if (bm) bm.onclick = () => { S.ui.mapaFiltroDia = sel; }; }
   };
 };
 function rolarFaixa() { const on = $('#faixa-dias .on'); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' }); }
@@ -355,7 +356,8 @@ AC['abrir-atividade'] = el => {
       ${N_lista(a.Quem).length ? `<p class="peq">Só vão: ${N_lista(a.Quem).map(pessoaNome).map(esc).join(', ')}</p>` : ''}
       ${a.ResponsavelID ? `<p class="peq">Responsável: ${esc(pessoaNome(a.ResponsavelID))}</p>` : ''}
       ${dd.min ? `<p class="peq">Até a próxima parada: ~${dd.min} min ${esc(dd.modo)} (${String(dd.km).replace('.', ',')} km, estimativa em linha reta × 1,3)</p>` : ''}
-      <p class="mpeq">Atualizado ${a.AtualizadoPor ? 'por ' + esc(pessoaNome(a.AtualizadoPor)) : ''} ${a.AtualizadoEm ? 'em ' + esc(new Date(a.AtualizadoEm).toLocaleString('pt-BR')) : ''}${a._pendente ? ' · aguardando envio' : ''}</p>`,
+      ${anexosDe('atividade', a.ID, a.LugarID ? { tipo: 'lugar', id: a.LugarID } : null)}
+      <p class="mpeq">Atualizado ${ach('Pessoas', a.AtualizadoPor) ? 'por ' + esc(pessoaNome(a.AtualizadoPor)) : a.AtualizadoPor === 'planilha' ? 'na planilha' : ''} ${a.AtualizadoEm ? 'em ' + esc(new Date(a.AtualizadoEm).toLocaleString('pt-BR')) : ''}${a._pendente ? ' · aguardando envio' : ''}</p>`,
     rodape: `<div class="botoes">${l && l.Lat !== '' ? `<button class="btn" data-a="ver-no-mapa" data-id="${l.ID}">Ver no mapa</button>` : ''}${podeEditar() ? `<button class="btn prim" data-a="editar-atividade" data-id="${a.ID}">Editar</button>` : ''}</div>`
   });
 };
@@ -507,15 +509,18 @@ async function gerarPdf(tipo, cidadeId) {
 AC['mais'] = () => {
   const v = viagem();
   abrirPainel({
-    titulo: v ? v.Nome : 'Menu',
-    html: `<div class="grade">
+    titulo: 'Menu',
+    html: `<div class="cartao" style="padding:12px"><div class="peq">Viagem aberta</div><b style="font-size:1.1rem">${esc(v ? v.Nome : '—')}</b>
+        <div class="botoes" style="margin-top:10px"><button class="btn" data-a="trocar-viagens">🌍 Trocar de viagem${minhasViagens().length > 1 ? ' (' + minhasViagens().length + ')' : ''}</button><button class="btn prim" data-a="nova-viagem">+ Nova viagem</button></div></div>
+      <div class="grade">
       <a href="#/viagem"><span class="ic">🧭</span>Viagem e cidades</a><a href="#/reservas"><span class="ic">🎫</span>Reservas</a><a href="#/tarefas"><span class="ic">☑️</span>Tarefas</a>
       <a href="#/decisoes"><span class="ic">🗳️</span>Decisões</a><a href="#/checklists"><span class="ic">🧳</span>Malas e listas</a><a href="#/docs"><span class="ic">📎</span>Documentos</a>
       <a href="#/lugares"><span class="ic">📍</span>Lugares</a><a href="#/infos"><span class="ic">ℹ️</span>Informações</a><a href="#/diario"><span class="ic">📓</span>Diário</a>
-      <a href="#/grupo"><span class="ic">👪</span>Grupo</a><a href="#/viagens"><span class="ic">🌍</span>Viagens</a><a href="#/perfil"><span class="ic">⚙️</span>Ajustes</a></div>
+      <a href="#/grupo"><span class="ic">👪</span>Grupo</a><a href="#/viagens"><span class="ic">🌍</span>Todas as viagens</a><a href="#/perfil"><span class="ic">🎨</span>Ajustes e aparência</a></div>
       <a href="#/ajuda" class="btn bloco" style="margin-top:12px">? Ajuda</a>`
   });
 };
+AC['trocar-viagens'] = () => { fecharPainel(true); ir('#/viagens'); };
 AC['mais-criar'] = () => {
   if (!S.viagemId) { formViagem(null); return; }
   abrirPainel({
@@ -539,7 +544,7 @@ TELAS.viagem = () => {
   return {
     titulo: 'viagem e cidades',
     html: `<div class="cartao"><h2>${esc(v.Nome)}</h2><p class="peq">${esc(fmtDia(v.DataInicio, true))} a ${esc(fmtDia(v.DataFim, true))} · ${diasEntre(v.DataInicio, v.DataFim) + 1} dias · acerto em ${esc(v.MoedaAcerto)} · ${esc(v.Status)}</p>
-      ${v.Notas ? `<p style="white-space:pre-wrap">${esc(v.Notas)}</p>` : ''}${souOrg() ? '<button class="btn" data-a="editar-viagem">Editar dados</button>' : ''}</div>
+      ${v.Notas ? `<p style="white-space:pre-wrap">${esc(v.Notas)}</p>` : ''}${souOrg() ? '<div class="botoes"><button class="btn" data-a="editar-viagem">Editar dados</button><button class="btn perigo" data-a="excluir-viagem">Excluir viagem</button></div>' : ''}</div>
       <div class="secao-topo"><div class="rotulo">Cidades-base</div>${souOrg() ? '<button class="btn" style="min-height:40px" data-a="nova-cidade">+ Cidade</button>' : ''}</div>
       ${cids.length ? `<div class="lista">${cids.map((c, i) => `<div class="item"><span class="emoji" style="background:${CORES_DIA[i % 8]};color:#fff">${i + 1}</span>
         <button type="button" class="corpo" data-a="editar-cidade" data-id="${c.ID}" style="background:none;border:0;text-align:left;padding:0;cursor:pointer"><span class="t">${esc(c.Nome)}${c.Pais ? ' <span class="peq">· ' + esc(c.Pais) + '</span>' : ''}</span>
@@ -550,6 +555,17 @@ TELAS.viagem = () => {
   };
 };
 AC['editar-viagem'] = () => formViagem(S.viagemId);
+AC['excluir-viagem'] = async () => {
+  const v = viagem();
+  if (!(await confirmar(`Excluir a viagem "${v.Nome}"? Ela some do app de todos os participantes (roteiro, contas e documentos deixam de aparecer). Você pode desfazer logo em seguida; depois, só o dono da planilha recupera (coluna Excluido = não na aba Viagens).`, { titulo: 'Excluir viagem', ok: 'Excluir viagem', perigo: true }))) return;
+  const id = v.ID;
+  excluir('Viagens', id, { semDesfazer: true });
+  S.viagemId = null;
+  escolherViagemPadrao();
+  mudou();
+  ir('#/hoje');
+  toast('Viagem excluída', { acao: 'Desfazer', ms: 10000, fn: () => { restaurar('Viagens', id, { semDesfazer: true }); S.viagemId = id; mudou(); ir('#/hoje'); } });
+};
 AC['nova-cidade'] = () => formulario('Cidades', null, { titulo: 'Nova cidade', campos: ['Nome', 'Pais', 'Chegada', 'Saida', 'Moeda', 'Fuso', 'Lat', 'Lng', 'Idioma', 'Tomada', 'Emergencia'],
   ajuda: { Fuso: 'Ex.: Europe/Brussels, Europe/Berlin, Europe/Lisbon (usado no resumo da manhã).', Lat: 'Centro da cidade (para o mapa). Pode copiar do Google Maps.' }, msg: 'Cidade adicionada' });
 AC['editar-cidade'] = el => { formulario('Cidades', el.dataset.id, { titulo: 'Cidade', campos: ['Nome', 'Pais', 'Chegada', 'Saida', 'Moeda', 'Fuso', 'Lat', 'Lng', 'Idioma', 'Tomada', 'Emergencia'] }); };
@@ -598,7 +614,6 @@ AC['abrir-reserva'] = el => {
     titulo: r.Titulo,
     render: () => {
       const l = ach('Lugares', r.LugarID), d = ach('Lugares', r.LugarDestinoID);
-      const anexos = daV('Anexos').filter(a => a.VinculoTipo === 'reserva' && a.VinculoID === r.ID);
       return `${r.Codigo ? `<div class="codigo-gigante" data-a="copiar" data-t="${esc(r.Codigo)}">${esc(r.Codigo)}</div><p class="mpeq" style="text-align:center;margin-top:-4px">toque para copiar · mostre no balcão</p>` : ''}
         <div class="lista">
           ${itemHtml({ ic: ICONE_RESERVA[r.Tipo] || '📄', t: esc(r.Tipo) + (r.Fornecedor ? ' · ' + esc(r.Fornecedor) : ''), s: esc(fmtDH(r.Inicio)) + (r.Fim ? ' → ' + esc(fmtDH(r.Fim)) : '') })}
@@ -610,8 +625,7 @@ AC['abrir-reserva'] = el => {
         ${l ? `<div class="cartao"><h3>${esc(l.Nome)}</h3><p class="peq">${esc(l.Endereco || '')}</p>${l.Telefone ? `<a href="tel:${esc(l.Telefone)}">☎ ${esc(l.Telefone)}</a>` : ''}${botoesMapa(l)}</div>` : ''}
         ${d ? `<div class="cartao"><div class="peq">Destino</div><h3>${esc(d.Nome)}</h3>${botoesMapa(d)}</div>` : ''}
         ${r.Notas ? `<div class="cartao" style="white-space:pre-wrap">${esc(r.Notas)}</div>` : ''}
-        <div class="secao-topo"><div class="rotulo">Documentos</div>${podeEditar() ? `<button class="btn" style="min-height:40px" data-a="doc-reserva" data-id="${r.ID}">+ Anexar</button>` : ''}</div>
-        ${anexos.length ? `<div class="lista">${anexos.map(docItem).join('')}</div>` : '<p class="peq">Anexe o voucher ou a passagem: os das reservas dos próximos 3 dias ficam guardados no aparelho automaticamente.</p>'}`;
+        ${anexosDe('reserva', r.ID)}`;
     },
     rodape: podeEditar() ? `<div class="botoes"><button class="btn" data-a="despesa-da-reserva" data-id="${r.ID}">Lançar despesa</button><button class="btn prim" data-a="editar-reserva" data-id="${r.ID}">Editar</button></div>` : undefined
   });
@@ -780,8 +794,8 @@ function docItem(a) {
   const vis = { grupo: 'todos', família: 'família', pessoal: 'só eu' }[a.Visibilidade] || a.Visibilidade;
   const venc = a.Validade && a.Validade <= somaDias(h, 180) ? `<span class="etiqueta ${a.Validade < h ? 'erro' : 'alerta'}">vence ${fmtDiaCurto(a.Validade)}</span>` : '';
   return `<div class="item ${a._pendente ? 'pendente' : ''}"><button type="button" class="corpo" data-a="doc-abrir" data-id="${a.ID}" style="background:none;border:0;text-align:left;padding:0;cursor:pointer;display:flex;gap:12px;align-items:center">
-    <span class="emoji">${/pdf/.test(a.Mime) ? '📄' : /image/.test(a.Mime) ? '🖼️' : '📎'}</span><span style="min-width:0"><span class="t">${esc(a.Titulo)}</span><span class="s">${esc(a.Tipo)} · ${esc(vis)} ${venc}</span></span></button>
-    <button class="icone-btn" data-a="doc-menu" data-id="${a.ID}" aria-label="Opções" title="${S.offline.has(a.ID) ? 'Guardado no aparelho' : 'Só online'}">${S.offline.has(a.ID) ? '✓' : '⋯'}</button></div>`;
+    <span class="emoji">${a.Url && a.TemArquivo !== 'sim' ? '🔗' : /pdf/.test(a.Mime) ? '📄' : /image/.test(a.Mime) ? '🖼️' : '📎'}</span><span style="min-width:0"><span class="t">${esc(a.Titulo)}</span><span class="s">${esc(a.Tipo)} · ${esc(vis)}${a.Url && a.TemArquivo !== 'sim' ? ' · ' + esc(String(a.Url).replace(/^https?:\/\/(www\.)?/, '').split('/')[0]) : ''} ${venc}</span></span></button>
+    <button class="icone-btn" data-a="doc-menu" data-id="${a.ID}" aria-label="Opções" title="${S.offline.has(a.ID) ? 'Guardado no aparelho' : 'Opções'}">${S.offline.has(a.ID) ? '✓' : '⋯'}</button></div>`;
 }
 TELAS.docs = () => {
   const l = daV('Anexos').filter(a => a.Oculto !== 'sim');
@@ -796,6 +810,12 @@ TELAS.docs = () => {
 };
 AC['doc-abrir'] = async el => {
   const id = el.dataset.id;
+  const reg = ach('Anexos', id);
+  if (reg && reg.Url && reg.TemArquivo !== 'sim') {
+    if (!navigator.onLine) toast('Sem internet: o link pode não abrir. Para usar sem sinal, anexe o PDF ou um print.', { ms: 6000 });
+    window.open(reg.Url, '_blank', 'noopener');
+    return;
+  }
   toast('Abrindo…', { ms: 20000 });
   try { const a = await obterAnexo(id); $$('.torrada').forEach(t => t.remove()); await abrirArquivo(a); render(true); }
   catch (e) { toast(e.message, { ms: 6000 }); }
@@ -805,7 +825,8 @@ AC['doc-menu'] = el => {
   const dono = a.DonoPessoaID === euId();
   abrirPainel({ titulo: a.Titulo, html: `<p class="peq">Enviado por ${esc(pessoaNome(a.DonoPessoaID))} · ${esc(a.NomeArquivo || '')}${a.Tamanho ? ' · ' + Math.round(a.Tamanho / 1024) + ' KB' : ''}</p>
     <div class="lista">
-      ${itemHtml({ a: 'doc-offline', id: a.ID, ic: S.offline.has(a.ID) ? '✓' : '⤓', t: S.offline.has(a.ID) ? 'Remover deste aparelho' : 'Guardar neste aparelho', s: 'para abrir sem internet' })}
+      ${a.TemArquivo === 'sim' ? itemHtml({ a: 'doc-offline', id: a.ID, ic: S.offline.has(a.ID) ? '✓' : '⤓', t: S.offline.has(a.ID) ? 'Remover deste aparelho' : 'Guardar neste aparelho', s: 'para abrir sem internet' }) : ''}
+      ${a.Url ? itemHtml({ a: 'copiar', ic: '🔗', t: 'Copiar o link', s: esc(a.Url), extra: `data-t="${esc(a.Url)}"` }) : ''}
       ${dono || souOrg() ? itemHtml({ a: 'doc-editar', id: a.ID, ic: '✏️', t: 'Editar título, tipo e quem pode ver' }) : ''}
       ${dono || souOrg() ? itemHtml({ a: 'doc-excluir', id: a.ID, ic: '🗑️', t: 'Excluir' }) : ''}
     </div>` });
@@ -816,7 +837,7 @@ AC['doc-offline'] = async el => {
   else { try { await baixarAnexo(id); toast('Guardado no aparelho'); } catch (e) { toast(e.message); } }
   fecharPainel(); render(true);
 };
-AC['doc-editar'] = el => formulario('Anexos', el.dataset.id, { titulo: 'Documento', campos: ['Titulo', 'Tipo', 'Visibilidade', 'Validade'] });
+AC['doc-editar'] = el => { const a = ach('Anexos', el.dataset.id); formulario('Anexos', a.ID, { titulo: a.Url && a.TemArquivo !== 'sim' ? 'Link' : 'Documento', campos: a.Url && a.TemArquivo !== 'sim' ? ['Titulo', 'Url', 'Tipo', 'Visibilidade', 'Validade'] : ['Titulo', 'Tipo', 'Visibilidade', 'Validade'] }); };
 AC['doc-excluir'] = async el => { if (!(await confirmar('Excluir este documento?', { ok: 'Excluir', perigo: true }))) return; excluir('Anexos', el.dataset.id); fecharPainel(); };
 
 /* ============================== LUGARES ============================== */
@@ -842,13 +863,14 @@ AC['abrir-lugar'] = el => {
   const ats = daV('Atividades').filter(a => a.LugarID === l.ID);
   abrirPainel({
     titulo: l.Nome,
-    html: `<p class="peq">${ICONE_TIPO[l.Tipo] || '📍'} ${esc(l.Tipo)} · ${esc(l.Status)}${l.CidadeID ? ' · ' + esc(nomeDe('Cidades', l.CidadeID)) : ''}${media ? ' · ★ ' + media + ' (' + avs.length + ')' : ''}</p>
+    render: () => `<p class="peq">${ICONE_TIPO[l.Tipo] || '📍'} ${esc(l.Tipo)} · ${esc(l.Status)}${l.CidadeID ? ' · ' + esc(nomeDe('Cidades', l.CidadeID)) : ''}${media ? ' · ★ ' + media + ' (' + avs.length + ')' : ''}</p>
       ${l.Endereco ? `<p>${esc(l.Endereco)}</p>` : ''}${l.Telefone ? `<a class="btn" href="tel:${esc(l.Telefone)}">☎ ${esc(l.Telefone)}</a>` : ''}
       ${botoesMapa(l)}
       ${l.Acessibilidade ? `<div class="aviso info">♿ ${esc(l.Acessibilidade)}</div>` : ''}
       ${l.Notas ? `<div class="cartao" style="white-space:pre-wrap">${esc(l.Notas)}</div>` : ''}
       ${l.Link ? `<p><a href="${esc(l.Link)}" target="_blank" rel="noopener">Abrir link</a></p>` : ''}
       ${ats.length ? `<div class="rotulo">No roteiro</div><div class="lista">${ats.map(a => itemHtml({ a: 'abrir-atividade', id: a.ID, ic: '🗓️', t: esc(fmtDia(a.Data)), s: esc(a.HoraInicio || '') + ' ' + esc(a.Titulo) })).join('')}</div>` : ''}
+      ${anexosDe('lugar', l.ID)}
       ${avs.length ? `<div class="rotulo">Avaliações</div>${avs.map(a => `<div class="cartao"><b>${'★'.repeat(Number(a.Nota))}${'☆'.repeat(5 - Number(a.Nota))}</b> · ${esc(pessoaNome(a.PessoaID))}${a.Voltaria === 'sim' ? ' · voltaria' : a.Voltaria === 'não' ? ' · não voltaria' : ''}${a.Comentario ? `<div class="peq">${esc(a.Comentario)}</div>` : ''}</div>`).join('')}` : ''}`,
     rodape: `<div class="botoes">${l.Lat !== '' ? `<button class="btn" data-a="ver-no-mapa" data-id="${l.ID}">Mapa</button>` : ''}${podeEditar() ? `<button class="btn" data-a="por-no-roteiro" data-id="${l.ID}">Pôr no roteiro</button><button class="btn" data-a="avaliar" data-id="${l.ID}">Avaliar</button><button class="btn prim" data-a="editar-lugar" data-id="${l.ID}">Editar</button>` : ''}</div>`
   });
@@ -956,15 +978,24 @@ AC['duplicar-viagem'] = async () => {
 /* ============================== AJUSTES ============================== */
 TELAS.perfil = () => {
   const eu = ach('Pessoas', euId()) || (S.sessao && S.sessao.pessoa) || {};
-  const tema = lsGet('tema') || 'auto', letra = lsGet('letra') || '0';
+  const tema = lsGet('tema') || 'auto', letra = lsGet('letra') || '0', paleta = lsGet('paleta') || 'neutro', fonte = lsGet('fonte') || 'sistema';
+  FONTES.forEach(f => carregarFonte(f[0]));
   return {
-    titulo: 'ajustes',
+    titulo: 'ajustes e aparência',
     html: `<div class="cartao"><div class="cartao-topo">${avatar(eu.ID, 48)}<div><h2>${esc(eu.Nome)}</h2><div class="peq">${esc(eu.Email || 'sem e-mail')}${eu.Pix ? ' · Pix ' + esc(eu.Pix) : ''}</div></div></div>
         <button class="btn" data-a="editar-eu" style="margin-top:10px">Editar meus dados</button></div>
-      <div class="rotulo">Aparência</div>
-      <div class="seg">${[['auto', 'Auto'], ['claro', 'Claro'], ['escuro', 'Escuro'], ['sol', '☀️ Sol']].map(t => `<button class="${tema === t[0] ? 'on' : ''}" data-a="tema" data-v="${t[0]}">${t[1]}</button>`).join('')}</div>
-      <p class="peq" style="margin-top:-6px">"Sol" usa contraste máximo para ler na rua.</p>
-      <div class="seg">${[['0', 'Aa'], ['1', 'Aa+'], ['2', 'Aa++']].map(t => `<button class="${letra === t[0] ? 'on' : ''}" data-a="letra" data-v="${t[0]}" style="font-size:${1 + Number(t[0]) * 0.12}rem">${t[1]}</button>`).join('')}</div>
+      <div class="rotulo">Modo</div>
+      <div class="seg">${[['auto', 'Automático'], ['claro', 'Claro'], ['escuro', 'Escuro'], ['sol', '☀️ Sol']].map(t => `<button class="${tema === t[0] ? 'on' : ''}" data-a="tema" data-v="${t[0]}">${t[1]}</button>`).join('')}</div>
+      <p class="peq" style="margin-top:-6px">Automático acompanha o celular (escuro à noite). "Sol" usa contraste máximo para ler na rua.</p>
+      <div class="rotulo">Cores</div>
+      <div class="grade">${PALETAS.map(p => `<button class="opcao ${paleta === p[0] ? 'on' : ''}" data-a="paleta" data-v="${p[0]}" aria-pressed="${paleta === p[0]}">
+        <span class="amostra-cor"><i style="background:${p[2]}"></i><i style="background:${p[3]}"></i></span>${esc(p[1])}</button>`).join('')}</div>
+      <div class="rotulo">Fonte</div>
+      <div class="lista">${FONTES.map(f => `<button type="button" class="item opcao ${fonte === f[0] ? 'on' : ''}" data-a="fonte" data-v="${f[0]}" style="${fonte === f[0] ? 'outline-offset:-3px' : ''}">
+        <span class="corpo"><span class="t" style="font-family:${f[0] === 'sistema' ? 'inherit' : `'${f[1].replace(/ \(.*\)/, '').replace('Clássica', 'Source Serif 4').replace('Editorial', 'Fraunces')}',sans-serif`};font-size:1.1rem">${esc(f[1])} · Bruxelas 10:00 · € 48,90</span><span class="s">${esc(f[2])}</span></span>${fonte === f[0] ? '<span class="v">✓</span>' : ''}</button>`).join('')}</div>
+      <div class="rotulo">Tamanho do texto</div>
+      <div class="seg">${[['0', 'Aa'], ['1', 'Aa+'], ['2', 'Aa++'], ['3', 'Aa+++']].map(t => `<button class="${letra === t[0] ? 'on' : ''}" data-a="letra" data-v="${t[0]}" style="font-size:${1 + Number(t[0]) * 0.1}rem">${t[1]}</button>`).join('')}</div>
+      <p class="mpeq">A aparência vale só para este aparelho. Fontes diferentes da do sistema são baixadas na primeira vez (precisa de internet).</p>
       <div class="rotulo">Acesso</div>
       <div class="lista">${itemHtml({ a: 'trocar-pin', ic: '🔑', t: 'Trocar meu PIN' })}${itemHtml({ a: 'sair-todos', ic: '📵', t: 'Sair de todos os aparelhos' })}
         ${!INSTALADO ? itemHtml({ a: IOS ? 'como-instalar' : 'instalar', ic: '📲', t: 'Instalar o app na tela de início', s: 'necessário no iPhone para funcionar sem internet' }) : ''}
@@ -976,8 +1007,10 @@ TELAS.perfil = () => {
   };
 };
 AC['editar-eu'] = () => formulario('Pessoas', euId(), { titulo: 'Meus dados', campos: ['Nome', 'Apelido', 'Email', 'Pix', 'Cor'], podeExcluir: false, ajuda: { Pix: 'Aparece na mensagem de acerto de contas.', Cor: 'Ex.: #1d4ed8' } });
-AC['tema'] = el => { lsSet('tema', el.dataset.v); aplicarTema(); render(); };
-AC['letra'] = el => { lsSet('letra', el.dataset.v); aplicarTema(); render(); };
+AC['tema'] = el => { lsSet('tema', el.dataset.v); aplicarTema(); render(true); };
+AC['paleta'] = el => { lsSet('paleta', el.dataset.v); aplicarTema(); render(true); };
+AC['fonte'] = el => { lsSet('fonte', el.dataset.v); aplicarTema(); render(true); };
+AC['letra'] = el => { lsSet('letra', el.dataset.v); aplicarTema(); render(true); };
 AC['trocar-pin'] = () => {
   abrirPainel({ titulo: 'Trocar PIN', html: `<label class="campo"><span>PIN atual</span><input id="pin-atual" inputmode="numeric" type="password" autocomplete="off"></label><label class="campo"><span>Novo PIN (4 a 6 números)</span><input id="pin-novo" inputmode="numeric" type="password" autocomplete="off"></label>`,
     rodape: '<div class="falta" id="pin-falta"></div><button class="btn prim bloco" data-a="pin-trocar">Trocar</button>' });

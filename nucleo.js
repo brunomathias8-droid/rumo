@@ -94,10 +94,10 @@ var ESQUEMA_TEXTO = {
     'FaixaEtaria:enum(bebê,criança,adulto,idoso,todos)=todos@Faixa etária'] },
   ModeloItens: { p: 'MOI', global: true, campos: ['ModeloID:ref(Modelos)!@Modelo', 'Texto:txt!@Item', 'Qtde:int@Qtde', 'Ordem:int@Ordem'] },
   Anexos: { p: 'ANX', campos: [
-    'Titulo:txt!@Título', 'Tipo:enum(passagem,voucher,seguro,documento,outro)=outro@Tipo',
+    'Titulo:txt!@Título', 'Tipo:enum(passagem,voucher,ingresso,seguro,documento,link,outro)=outro@Tipo',
     'Visibilidade:enum(grupo,família,pessoal)!=grupo@Quem pode ver', 'DonoPessoaID:ref(Pessoas)@Dono',
     'FamiliaID:ref(Familias)@Família', 'ArquivoID:txt~@Arquivo no Drive', 'NomeArquivo:txt@Nome do arquivo',
-    'Mime:txt@Tipo do arquivo', 'Tamanho:int@Tamanho (bytes)', 'VinculoTipo:enum(reserva,despesa,lugar,pessoa,viagem)@Vinculado a',
+    'Mime:txt@Tipo do arquivo', 'Tamanho:int@Tamanho (bytes)', 'Url:longtxt@Link (ingresso, voucher on-line, site)', 'VinculoTipo:enum(reserva,despesa,lugar,atividade,pessoa,viagem)@Vinculado a',
     'VinculoID:txt@Vínculo', 'Validade:data@Validade'] },
   Infos: { p: 'INF', campos: [
     'CidadeID:ref(Cidades)@Cidade', 'Categoria:enum(emergência,seguro,embaixada,saúde,tomada,fuso,moeda,frases,contato)!=contato@Categoria',
@@ -117,6 +117,7 @@ var ABAS_INTERNAS = {
   Cotacoes: ['Data', 'De', 'Para', 'Taxa', 'Fonte'],
   Saldos: ['ViagemID', 'Nivel', 'RefID', 'Nome', 'Pagou', 'Consumiu', 'Recebeu', 'Repassou', 'Saldo', 'AtualizadoEm'],
   ResumoOrcamento: ['ViagemID', 'Dimensao', 'Chave', 'Nome', 'Orcado', 'Gasto', 'Diferenca', 'Percentual', 'AtualizadoEm'],
+  Rotas: ['Chave', 'Modo', 'Coords', 'DistanciaM', 'DuracaoS', 'Trechos', 'Fonte', 'AtualizadoEm'],
   PerguntasIA: ['Quando', 'PessoaID', 'Pergunta', 'Resposta'],
   Erros: ['Quando', 'Origem', 'Mensagem', 'Detalhe']
 };

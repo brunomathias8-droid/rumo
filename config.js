@@ -4,7 +4,7 @@
  */
 window.RUMO_CONFIG = {
   // Endereço /exec da implantação do Apps Script (Implantar → Gerenciar implantações)
-  api: 'https://brunomathias8-droid.github.io/rumo/',
+  api: '',
   // Mapa: estilo vetorial gratuito (OpenFreeMap). Se sair do ar, troque por outro estilo MapLibre.
   estiloMapa: 'https://tiles.openfreemap.org/styles/liberty',
   maplibreJs: 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js',

@@ -363,11 +363,12 @@ function reverter(x) {
 }
 
 function escolherViagemPadrao() {
-  if (S.viagemId && S.part[S.viagemId] && ach('Viagens', S.viagemId)) return;
+  const atual = ach('Viagens', S.viagemId);
+  if (S.viagemId && S.part[S.viagemId] && atual && atual.Excluido !== 'sim') return;
   const vs = minhasViagens();
   const h = hoje();
-  const atual = vs.find(v => v.DataInicio <= h && v.DataFim >= h) || vs.find(v => v.DataFim >= h) || vs[vs.length - 1];
-  S.viagemId = atual ? atual.ID : null;
+  const esc_ = vs.find(v => v.DataInicio <= h && v.DataFim >= h) || vs.find(v => v.DataFim >= h) || vs[vs.length - 1];
+  S.viagemId = esc_ ? esc_.ID : null;
 }
 
 function mostrarConflito() {
@@ -420,8 +421,11 @@ async function guardarAnexosDoDia() {
   try {
     const h = hoje(), lim = somaDias(h, 3);
     const reservas = daV('Reservas').filter(r => { const i = String(r.Inicio || r.Fim || '').slice(0, 10); return i >= h && i <= lim; }).map(r => r.ID);
-    const alvo = daV('Anexos').filter(a => a.TemArquivo === 'sim' && !S.offline.has(a.ID) && a.VinculoTipo === 'reserva' && reservas.includes(a.VinculoID));
-    for (const a of alvo.slice(0, 6)) { try { await baixarAnexo(a.ID); } catch (e) { break; } }
+    const ativs = daV('Atividades').filter(a => a.Data >= h && a.Data <= lim);
+    const ativIds = ativs.map(a => a.ID), lugIds = ativs.map(a => a.LugarID).filter(Boolean);
+    const alvo = daV('Anexos').filter(a => a.TemArquivo === 'sim' && !S.offline.has(a.ID) &&
+      ((a.VinculoTipo === 'reserva' && reservas.includes(a.VinculoID)) || (a.VinculoTipo === 'atividade' && ativIds.includes(a.VinculoID)) || (a.VinculoTipo === 'lugar' && lugIds.includes(a.VinculoID))));
+    for (const a of alvo.slice(0, 10)) { try { await baixarAnexo(a.ID); } catch (e) { break; } }
   } finally { _guardando = false; }
 }
 function b64ParaBlob(b64, mime) { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Blob([u], { type: mime }); }
@@ -621,13 +625,38 @@ document.addEventListener('click', e => {
 });
 
 /* ============================== tema e preferências ============================== */
+const PALETAS = [
+  ['neutro', 'Neutro', '#f6f7f9', '#2563eb'], ['grafite', 'Grafite', '#f4f4f4', '#111111'], ['oceano', 'Oceano', '#f2f7f8', '#0e7490'],
+  ['floresta', 'Floresta', '#f4f6f1', '#2f6b3f'], ['terracota', 'Terracota', '#faf6f2', '#b4532a'], ['ameixa', 'Ameixa', '#f8f6fa', '#7e22ce'],
+  ['rosa', 'Rosa', '#fbf6f7', '#be185d'], ['caderno', 'Caderno (original)', '#f5f0e6', '#c2410c']
+];
+const FONTES = [
+  ['sistema', 'Sistema (padrão)', 'A do próprio celular: San Francisco no iPhone, Roboto no Android', null],
+  ['inter', 'Inter', 'Neutra e muito legível em telas', 'Inter:wght@400;500;600;700'],
+  ['plex', 'IBM Plex Sans', 'Técnica e sóbria', 'IBM+Plex+Sans:wght@400;500;600;700'],
+  ['source', 'Source Sans 3', 'Leve, boa para textos longos', 'Source+Sans+3:wght@400;600;700'],
+  ['classica', 'Clássica', 'Títulos com serifa discreta; texto na fonte do sistema', 'Source+Serif+4:opsz,wght@8..60,600;8..60,700'],
+  ['editorial', 'Editorial (original)', 'A fonte de títulos da primeira versão', 'Fraunces:opsz,wght@9..144,500;9..144,700']
+];
+function carregarFonte(id) {
+  const f = FONTES.find(x => x[0] === id);
+  if (!f || !f[3] || document.querySelector(`link[data-fonte="${id}"]`)) return;
+  const l = document.createElement('link');
+  l.rel = 'stylesheet'; l.dataset.fonte = id;
+  l.href = 'https://fonts.googleapis.com/css2?family=' + f[3] + '&display=swap';
+  document.head.appendChild(l);
+}
 function aplicarTema() {
+  const raiz = document.documentElement;
   const t = lsGet('tema') || 'auto';
-  if (t === 'auto') delete document.documentElement.dataset.tema; else document.documentElement.dataset.tema = t;
-  const l = lsGet('letra') || '0';
-  document.documentElement.dataset.letra = l;
+  if (t === 'auto') delete raiz.dataset.tema; else raiz.dataset.tema = t;
+  const p = lsGet('paleta') || 'neutro';
+  if (p === 'neutro') delete raiz.dataset.paleta; else raiz.dataset.paleta = p;
+  const f = lsGet('fonte') || 'sistema';
+  if (f === 'sistema') delete raiz.dataset.fonte; else { raiz.dataset.fonte = f; carregarFonte(f); }
+  raiz.dataset.letra = lsGet('letra') || '0';
   const meta = $('meta[name=theme-color]');
-  if (meta) meta.content = t === 'sol' ? '#ffffff' : '#14213d';
+  if (meta) requestAnimationFrame(() => { meta.content = getComputedStyle(document.body || raiz).backgroundColor || '#ffffff'; });
 }
 
 /* ============================== sessão ============================== */
@@ -684,6 +713,7 @@ async function iniciar() {
     if (e) CHAVES_ESTADO.forEach(k => { if (e[k] !== undefined) S[k] = e[k]; });
   } catch (e) { /* começa vazio */ }
   await carregarOffline();
+  if (typeof carregarRotas === 'function') await carregarRotas();
   escolherViagemPadrao();
   render();
   registrarSW();
