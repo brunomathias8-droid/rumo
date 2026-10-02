@@ -71,13 +71,14 @@ TELAS.mapa = () => {
       <section class="mapa-lista" data-pos="${E.lista}" id="mapa-lista"><div class="alca" data-a="mapa-lista-pos" style="padding:10px 0 6px;display:grid;place-items:center;cursor:pointer"><i style="width:44px;height:5px;border-radius:3px;background:var(--linha)"></i></div>
         <div class="conteudo" id="mapa-lista-conteudo">${listaMapaHtml()}</div></section>
     </div>`,
-    depois: () => iniciarMapa()
+    depois: () => { iniciarMapa(); ativarArrastarRota(); }
   };
 };
 TELAS.mapa.atualizar = () => {
   if (!MAPA.el || !document.body.contains(MAPA.el)) return false;
   $('#mapa-chips').innerHTML = chipsMapa(estadoMapa());
   $('#mapa-lista-conteudo').innerHTML = listaMapaHtml();
+  ativarArrastarRota();
   desenharPontos(false);
   return true;
 };
@@ -108,14 +109,20 @@ function listaMapaHtml() {
       <div class="seg" style="margin-bottom:8px">${[['a pé', '🚶 A pé'], ['carro', '🚐 Carro'], ['bicicleta', '🚲 Bicicleta']].map(x => `<button class="${info.modo === x[0] ? 'on' : ''}" data-a="rota-modo" data-m="${x[0]}">${x[1]}</button>`).join('')}</div>
       ${info.temHosp ? `<label class="check" style="min-height:36px"><input type="checkbox" data-a="rota-hosp" ${info.usarHosp ? 'checked' : ''}><span class="peq">Começar na hospedagem</span></label>` : ''}
       ${r ? `<div class="cartao" style="padding:10px 12px;margin-bottom:8px"><b>${km(r.distancia)} · ${tempo(r.duracao)} ${esc(info.modo)}</b><div class="mpeq">${status} · sem contar o tempo nas paradas</div></div>` : `<p class="mpeq">${status}</p>`}
-      ${P.lista.length ? `<div class="lista">${info.seq.map((x, i) => {
+      ${avisoHorarios(P.dia)}
+      ${P.lista.length ? `<div class="lista" id="lista-rota">${info.seq.map((x, i) => {
         const t = r && r.trechos[i];
         const est = !r && x.a && cd[x.a.ID] ? cd[x.a.ID] : null;
         const prox = i < info.seq.length - 1 ? (t ? ` · até a próxima: ${tempo(t.s)} (${km(t.m)})` : est && est.min ? ` · até a próxima ~${est.min} min (estimativa)` : '') : '';
-        if (x.hosp) return itemHtml({ a: 'mapa-foco', id: x.l.ID, ic: '🛏️', t: esc(x.l.Nome), s: 'saída da hospedagem' + prox });
-        return itemHtml({ a: 'mapa-foco', id: x.l.ID, ic: `<b>${P.lista.findIndex(y => y.a.ID === x.a.ID) + 1}</b>`, cor: corDia(P.dia), t: esc(x.a.HoraInicio || '') + ' ' + esc(x.a.Titulo), s: esc(x.l.Nome) + prox,
-          v: linkRota(x.l) ? `<a class="btn" style="min-height:40px;padding:0 12px" href="${linkRota(x.l)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Ir</a>` : '' });
-      }).join('')}</div>` : vazio('Nenhuma atividade com lugar (e coordenadas) neste dia.')}
+        if (x.hosp) return `<div class="item parada fixa"><span class="emoji">🛏️</span><button type="button" class="corpo" data-a="mapa-foco" data-id="${x.l.ID}"><span class="t">${esc(x.l.Nome)}</span><span class="s">saída da hospedagem${prox}</span></button></div>`;
+        const n = P.lista.findIndex(y => y.a.ID === x.a.ID) + 1;
+        return `<div class="item parada" data-id="${x.a.ID}"><span class="emoji" style="background:${corDia(P.dia)};color:#fff"><b>${n}</b></span>
+          <button type="button" class="corpo" data-a="mapa-foco" data-id="${x.l.ID}"><span class="t">${x.a.HoraInicio ? `<span class="mono peq">${esc(x.a.HoraInicio)}</span> ` : ''}${esc(x.a.Titulo)}</span><span class="s">${esc(x.l.Nome)}${prox}</span></button>
+          ${linkRota(x.l) ? `<a class="btn peq" href="${linkRota(x.l)}" target="_blank" rel="noopener">Ir</a>` : ''}
+          ${podeEditar() && P.lista.length > 1 ? '<span class="alca-arr" aria-label="Arrastar para mudar a ordem" title="Arrastar para mudar a ordem">⠿</span>' : ''}</div>`;
+      }).join('')}</div>
+      ${podeEditar() && P.lista.length > 1 ? `<p class="mpeq" style="margin:-4px 2px 8px">Arraste ⠿ para mudar a ordem; a rota é refeita sozinha.</p>` : ''}
+      ${podeEditar() && P.lista.length > 2 ? '<button class="btn bloco" style="margin-bottom:8px" data-a="rota-otimizar">🔀 Sugerir a ordem mais curta</button>' : ''}` : vazio('Nenhuma atividade com lugar (e coordenadas) neste dia.')}
       ${google.length ? `<div class="botoes" style="margin-top:4px">${google.map((u, k) => `<a class="btn prim" href="${u}" target="_blank" rel="noopener">${google.length > 1 ? 'Google Maps · parte ' + (k + 1) : 'Abrir a rota no Google Maps'}</a>`).join('')}</div>
         <p class="mpeq">${google.length > 1 ? 'O Google Maps no celular aceita poucas paradas por link, por isso a rota foi dividida. ' : ''}No Google Maps você vê o trânsito e pode trocar para transporte público em cada trecho.</p>` : ''}`;
   }
@@ -187,7 +194,7 @@ function desenharPontos(enquadrar) {
     if (info.rota) feats.push({ type: 'Feature', properties: { cor: corDia(P.dia), tipo: 'rota' }, geometry: { type: 'LineString', coordinates: info.rota.coords } });
     else if (info.pontos.length > 1) {
       feats.push({ type: 'Feature', properties: { cor: corDia(P.dia), tipo: 'reta' }, geometry: { type: 'LineString', coordinates: info.pontos } });
-      buscarRota(info).then(r => { if (r && estadoMapa().rota && MAPA.map) { desenharPontos(false); const c = $('#mapa-lista-conteudo'); if (c) c.innerHTML = listaMapaHtml(); } });
+      buscarRota(info).then(r => { if (r && estadoMapa().rota && MAPA.map) { desenharPontos(false); const c = $('#mapa-lista-conteudo'); if (c) { c.innerHTML = listaMapaHtml(); ativarArrastarRota(); } } });
     }
   }
   if (map.getSource('rota')) map.getSource('rota').setData({ type: 'FeatureCollection', features: feats });
@@ -456,4 +463,45 @@ AC['rota-hosp'] = el => {
   const dia = diaDaRota(estadoMapa());
   (S.ui.rotaHosp = S.ui.rotaHosp || {})[dia] = el.checked;
   TELAS.mapa.atualizar(); desenharPontos(true);
+};
+
+/* ---------- mudar a ordem das paradas direto na rota ---------- */
+function ativarArrastarRota() {
+  const lista = $('#lista-rota');
+  if (!lista || !podeEditar() || !$('.alca-arr', lista)) return;
+  carregarScript(CFG.sortableJs, 'Sortable').then(Sortable => {
+    if (!Sortable || !document.body.contains(lista)) return;
+    Sortable.create(lista, { handle: '.alca-arr', draggable: '.parada:not(.fixa)', animation: 150, forceFallback: true, fallbackTolerance: 3,
+      onEnd: () => { const dia = diaDaRota(estadoMapa()); S.ui.erroRota = null; reordenarDia(dia, $$('.parada[data-id]', lista).map(e => e.dataset.id), 'Ordem da rota alterada'); } });
+  }).catch(() => { /* sem a biblioteca (1º uso sem internet): a ordem muda pelo roteiro */ });
+}
+
+/** Ordem mais curta em linha reta entre as paradas do dia (testa todas as combinações até 8 paradas;
+    acima disso, vizinho mais próximo). Parte da hospedagem quando ela está marcada como início. */
+function ordemMaisCurta(info) {
+  const paradas = info.seq.filter(x => x.a);
+  const inicio = info.seq.find(x => x.hosp);
+  const d = (p, q) => N_distKm(Number(p.l.Lat), Number(p.l.Lng), Number(q.l.Lat), Number(q.l.Lng));
+  const custo = ordem => ordem.reduce((s, x, i) => s + (i ? d(ordem[i - 1], x) : inicio ? d(inicio, x) : 0), 0);
+  let melhor = paradas.slice(), menor = custo(melhor);
+  if (paradas.length <= 8) {
+    const permutar = (resto, atual) => {
+      if (!resto.length) { const c = custo(atual); if (c < menor - 1e-9) { menor = c; melhor = atual.slice(); } return; }
+      for (let i = 0; i < resto.length; i++) { atual.push(resto[i]); permutar(resto.slice(0, i).concat(resto.slice(i + 1)), atual); atual.pop(); }
+    };
+    permutar(paradas, []);
+  } else {
+    const resto = paradas.slice(); const ordem = []; let atual = inicio || resto.shift();
+    if (!inicio) ordem.push(atual);
+    while (resto.length) { resto.sort((p, q) => d(atual, p) - d(atual, q)); atual = resto.shift(); ordem.push(atual); }
+    if (custo(ordem) < menor) { melhor = ordem; menor = custo(ordem); }
+  }
+  return { ids: melhor.map(x => x.a.ID), km: menor, atual: custo(paradas) };
+}
+AC['rota-otimizar'] = () => {
+  const dia = diaDaRota(estadoMapa());
+  const o = ordemMaisCurta(infoRota(dia));
+  if (o.atual - o.km < 0.05 || o.atual - o.km < o.atual * 0.03) { toast('A ordem atual já é a mais curta (ou quase).'); return; }
+  S.ui.erroRota = null;
+  reordenarDia(dia, o.ids, `Nova ordem: ~${(o.atual - o.km).toFixed(1).replace('.', ',')} km a menos`);
 };

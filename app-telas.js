@@ -267,6 +267,7 @@ TELAS.plano = args => {
       <div class="secao-topo" style="margin-top:6px"><div><h2>${esc(fmtDia(sel))}</h2><div class="peq">${cid ? esc(cid.Nome) : 'sem cidade definida'}${hospedagemDoDia(sel) ? ' · 🛏️ ' + esc((hospedagemDoDia(sel).lugar || {}).Nome || hospedagemDoDia(sel).reserva.Titulo) : ''}</div></div>
         <a class="btn" href="#/mapa" data-dia-mapa="${sel}">🗺️ Mapa</a></div>
       ${carregado ? `<div class="aviso alerta">Dia puxado: ${esc(carregado)}.</div>` : ''}
+      ${avisoHorarios(sel)}
       ${ats.length ? `<div class="linha-tempo" id="lista-ativ">${ats.map((a, i) => {
         const l = ach('Lugares', a.LugarID);
         const dd = desl[a.ID] || {};
@@ -310,14 +311,50 @@ function ativarArrastar(dia) {
   if (!lista || !podeEditar()) return;
   carregarScript(CFG.sortableJs, 'Sortable').then(Sortable => {
     if (!Sortable || !document.body.contains(lista)) return;
-    Sortable.create(lista, { handle: '.alca-arr', animation: 150, delay: 0, onEnd: () => {
-      const ids = $$('.ativ', lista).map(e => e.dataset.id);
-      emLote('Ordem do dia alterada', () => {
-        ids.forEach((id, i) => { const a = ach('Atividades', id); if (a && Number(a.Ordem) !== (i + 1) * 10) salvar('Atividades', id, { Ordem: (i + 1) * 10 }); });
-      });
-    } });
+    Sortable.create(lista, { handle: '.alca-arr', animation: 150, delay: 0, forceFallback: true, fallbackTolerance: 3, onEnd: () => reordenarDia(dia, $$('.ativ', lista).map(e => e.dataset.id)) });
   }).catch(() => { /* sem arrastar offline na 1ª vez: dá para mudar a ordem editando */ });
 }
+
+/* ---------- ordem do dia (usada no roteiro e na rota do mapa) ---------- */
+/** Aplica uma nova ordem a uma parte das atividades do dia (ex.: só as que têm lugar no mapa).
+    As demais (pausas sem lugar etc.) ficam nas mesmas posições. A rota é recalculada sozinha. */
+function reordenarDia(dia, idsNovos, msg) {
+  const todas = atividadesDoDia(dia).map(a => a.ID);
+  const conj = new Set(idsNovos);
+  const vagas = todas.map((id, i) => conj.has(id) ? i : -1).filter(i => i >= 0);
+  const final = todas.slice();
+  vagas.forEach((pos, k) => { final[pos] = idsNovos[k]; });
+  if (final.join() === todas.join()) return false;
+  emLote(msg || 'Ordem do dia alterada', () => {
+    final.forEach((id, i) => { const a = ach('Atividades', id); if (a && Number(a.Ordem) !== (i + 1) * 10) salvar('Atividades', id, { Ordem: (i + 1) * 10 }); });
+  });
+  return true;
+}
+/** true quando algum horário vem antes do horário da atividade anterior (comum depois de reordenar). */
+function horariosForaDeOrdem(dia) {
+  const hs = atividadesDoDia(dia).map(a => a.HoraInicio).filter(Boolean);
+  return hs.some((h, i) => i > 0 && h < hs[i - 1]);
+}
+function avisoHorarios(dia) {
+  if (!horariosForaDeOrdem(dia)) return '';
+  return `<div class="aviso alerta" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:180px">⏰ Os horários não seguem a nova ordem.</span>${podeEditar() ? `<button class="btn peq" data-a="ajustar-horarios" data-dia="${dia}">Reorganizar horários</button>` : ''}</div>`;
+}
+/** Redistribui os horários já marcados na nova ordem (o mais cedo vai para a 1ª atividade com horário),
+    mantendo a duração de cada atividade. */
+AC['ajustar-horarios'] = el => {
+  const dia = el.dataset.dia;
+  const ats = atividadesDoDia(dia).filter(a => a.HoraInicio);
+  const min = h => { const p = String(h).split(':'); return Number(p[0]) * 60 + Number(p[1]); };
+  const hm = m => String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  const horas = ats.map(a => a.HoraInicio).sort();
+  emLote('Horários reorganizados', () => {
+    ats.forEach((a, i) => {
+      if (a.HoraInicio === horas[i]) return;
+      const dur = a.HoraFim ? min(a.HoraFim) - min(a.HoraInicio) : null;
+      salvar('Atividades', a.ID, Object.assign({ HoraInicio: horas[i] }, dur !== null && dur >= 0 ? { HoraFim: hm(min(horas[i]) + dur) } : {}));
+    });
+  });
+};
 
 const _scripts = {};
 function carregarScript(src, global) {
