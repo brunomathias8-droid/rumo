@@ -517,13 +517,13 @@ function confirmar(msg, opc) {
 /* ---------- status de sincronização ---------- */
 function textoStatus() {
   const n = S.fila.length;
-  if (S.sincronizando) return { cls: '', txt: '⟳ enviando' };
+  if (S.sincronizando) return { cls: '', txt: 'enviando…' };
   if (!navigator.onLine || !S.online) return { cls: 'off', txt: n ? `offline · ${n} na fila` : 'offline' };
-  if (S.erroSinc) return { cls: 'erro', txt: '! ' + (n ? n + ' na fila' : 'tentar') };
+  if (S.erroSinc) return { cls: 'erro', txt: (n ? n + ' na fila' : 'tentar') };
   if (n) return { cls: 'off', txt: n + ' na fila' };
   if (!S.ultimaSinc) return { cls: '', txt: '—' };
   const min = Math.round((Date.now() - S.ultimaSinc) / 60000);
-  return { cls: '', txt: '✓ ' + (min < 1 ? 'agora' : min < 60 ? min + ' min' : Math.round(min / 60) + ' h') };
+  return { cls: '', txt: min < 1 ? 'sincronizado' : 'há ' + (min < 60 ? min + ' min' : Math.round(min / 60) + ' h') };
 }
 function atualizarStatus() {
   const el = $('#status-sinc');
@@ -542,7 +542,7 @@ AC['status'] = () => {
       <div class="item"><div class="corpo"><span class="t">Alterações aguardando envio</span><span class="s">${S.fila.length ? S.fila.map(x => esc(x.op.aba + ' · ' + x.op.acao)).slice(0, 8).join('<br>') : 'nenhuma'}</span></div></div>
       ${S.erroSinc ? `<div class="item"><div class="corpo"><span class="t">Último erro</span><span class="s">${esc(S.erroSinc)}</span></div></div>` : ''}
     </div>
-    <p class="peq">O que você lança sem internet fica guardado no aparelho e é enviado sozinho quando a conexão voltar. Não feche o app pelo gerenciador antes de ver "✓".</p>`,
+    <p class="peq">O que você lança sem internet fica guardado no aparelho e é enviado sozinho quando a conexão voltar. Não feche o app pelo gerenciador antes de ver "sincronizado" no topo.</p>`,
     rodape: `<div class="botoes"><button class="btn" data-a="sinc-completa">Recarregar tudo</button><button class="btn prim" data-a="sinc-agora">Atualizar agora</button></div>` });
 };
 AC['sinc-agora'] = () => { fecharPainel(); S.erroSinc = null; sincronizar(); };
@@ -597,7 +597,9 @@ AC['recarregar'] = () => location.reload();
 function casca(titulo, html, rota, largo) {
   const v = viagem();
   const nav = [['hoje', '☀️', 'Hoje'], ['plano', '🗓️', 'Plano'], null, ['mapa', '🗺️', 'Mapa'], ['contas', '💶', 'Contas']];
-  const ativa = { hoje: 'hoje', plano: 'plano', mapa: 'mapa', contas: 'contas' }[rota] || '';
+  const ativa = rota;
+  // No computador o menu lateral mostra também as seções que no celular ficam em "Mais"
+  const extra = [['reservas', '🎫', 'Reservas'], ['tarefas', '☑️', 'Tarefas'], ['docs', '📎', 'Documentos'], ['lugares', '📍', 'Lugares'], ['checklists', '🧳', 'Malas'], ['grupo', '👥', 'Grupo'], ['perfil', '⚙️', 'Ajustes']];
   return `<header class="topo">
       <button class="viagem-btn" data-a="mais" aria-label="Abrir menu da viagem">
         <span class="bola">${esc(v ? iniciais(v.Nome).slice(0, 1) : 'R')}</span>
@@ -608,7 +610,8 @@ function casca(titulo, html, rota, largo) {
     </header>
     <main class="${largo ? 'largo' : ''}">${html}</main>
     <nav class="barra" aria-label="Navegação">${nav.map(n => n ? `<a href="#/${n[0]}" class="${ativa === n[0] ? 'ativo' : ''}"><span class="ic">${n[1]}</span>${n[2]}</a>`
-      : `<div><button class="fab" data-a="mais-criar" aria-label="Adicionar">+</button></div>`).join('')}</nav>`;
+      : `<div class="fab-casa"><button class="fab" data-a="mais-criar" aria-label="Adicionar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="fab-txt">Adicionar</span></button></div>`).join('')}
+      <span class="so-pc rotulo-lateral">Viagem</span>${extra.map(n => `<a href="#/${n[0]}" class="so-pc ${ativa === n[0] ? 'ativo' : ''}"><span class="ic">${n[1]}</span>${n[2]}</a>`).join('')}</nav>`;
 }
 
 /* ---------- cliques: um único ouvinte para tudo que tem data-a ---------- */
@@ -626,17 +629,18 @@ document.addEventListener('click', e => {
 
 /* ============================== tema e preferências ============================== */
 const PALETAS = [
-  ['neutro', 'Neutro', '#f6f7f9', '#2563eb'], ['grafite', 'Grafite', '#f4f4f4', '#111111'], ['oceano', 'Oceano', '#f2f7f8', '#0e7490'],
-  ['floresta', 'Floresta', '#f4f6f1', '#2f6b3f'], ['terracota', 'Terracota', '#faf6f2', '#b4532a'], ['ameixa', 'Ameixa', '#f8f6fa', '#7e22ce'],
-  ['rosa', 'Rosa', '#fbf6f7', '#be185d'], ['caderno', 'Caderno (original)', '#f5f0e6', '#c2410c']
+  ['neutro', 'Linha (padrão)', '#f8f8f9', '#2445c4'], ['grafite', 'Grafite', '#f8f8f9', '#0e1116'], ['oceano', 'Oceano', '#f6f9fa', '#0f6e6e'],
+  ['floresta', 'Floresta', '#f7f8f6', '#2f6b3f'], ['terracota', 'Terracota', '#faf8f6', '#b4532a'], ['ameixa', 'Ameixa', '#f9f8fa', '#6b3e8c'],
+  ['rosa', 'Rosa', '#fbf8f9', '#a8326a'], ['caderno', 'Papel', '#f6f4ef', '#3e6b57']
 ];
 const FONTES = [
-  ['sistema', 'Sistema (padrão)', 'A do próprio celular: San Francisco no iPhone, Roboto no Android', null],
+  ['geist', 'Geist (padrão)', 'Limpa e precisa, com números bem alinhados', null],
+  ['sistema', 'Sistema', 'A do próprio celular: San Francisco no iPhone, Roboto no Android', null],
   ['inter', 'Inter', 'Neutra e muito legível em telas', 'Inter:wght@400;500;600;700'],
   ['plex', 'IBM Plex Sans', 'Técnica e sóbria', 'IBM+Plex+Sans:wght@400;500;600;700'],
-  ['source', 'Source Sans 3', 'Leve, boa para textos longos', 'Source+Sans+3:wght@400;600;700'],
-  ['classica', 'Clássica', 'Títulos com serifa discreta; texto na fonte do sistema', 'Source+Serif+4:opsz,wght@8..60,600;8..60,700'],
-  ['editorial', 'Editorial (original)', 'A fonte de títulos da primeira versão', 'Fraunces:opsz,wght@9..144,500;9..144,700']
+  ['source', 'Source Sans 3', 'Leve, boa para textos longos', 'Source+Sans+3:wght@400;500;600;700'],
+  ['classica', 'Clássica', 'Títulos com serifa discreta', 'Source+Serif+4:opsz,wght@8..60,500;8..60,600'],
+  ['editorial', 'Editorial', 'Títulos com serifa marcante', 'Fraunces:opsz,wght@9..144,500;9..144,600']
 ];
 function carregarFonte(id) {
   const f = FONTES.find(x => x[0] === id);
@@ -652,8 +656,8 @@ function aplicarTema() {
   if (t === 'auto') delete raiz.dataset.tema; else raiz.dataset.tema = t;
   const p = lsGet('paleta') || 'neutro';
   if (p === 'neutro') delete raiz.dataset.paleta; else raiz.dataset.paleta = p;
-  const f = lsGet('fonte') || 'sistema';
-  if (f === 'sistema') delete raiz.dataset.fonte; else { raiz.dataset.fonte = f; carregarFonte(f); }
+  const f = lsGet('fonte') || 'geist';
+  if (f === 'geist') delete raiz.dataset.fonte; else { raiz.dataset.fonte = f; carregarFonte(f); }
   raiz.dataset.letra = lsGet('letra') || '0';
   const meta = $('meta[name=theme-color]');
   if (meta) requestAnimationFrame(() => { meta.content = getComputedStyle(document.body || raiz).backgroundColor || '#ffffff'; });

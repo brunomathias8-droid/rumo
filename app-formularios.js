@@ -171,7 +171,7 @@ function formDespesa(id, pre) {
         <span>Pago por <b>${esc(D.pagoPor === euId() ? 'você' : pessoaNome(D.pagoPor))}</b></span>·
         <span>${D.fora ? '<b>fora da divisão</b>' : 'divisão: <b>' + esc(D.tipo) + '</b>'}</span>·
         <span><b>${D.data === hoje() ? 'hoje' : esc(fmtDiaCurto(D.data))}</b></span>${D.cidade ? '· <span>' + esc(nomeDe('Cidades', D.cidade)) + '</span>' : ''}
-        <span style="margin-left:auto;color:var(--acao);font-weight:700">${D.aberto ? 'menos ▲' : 'mudar ▼'}</span>
+        <span style="margin-left:auto;color:var(--acao);font-weight:600">${D.aberto ? 'menos ▲' : 'mudar ▼'}</span>
       </div>
       ${D.aberto ? detalhes(pres, ac) : ''}`;
   };
@@ -412,7 +412,7 @@ function formLugar(id, pre) {
     const q = $('#busca-end').value.trim();
     const box = $('#busca-res');
     if (!navigator.onLine) { box.innerHTML = '<p class="peq">A busca precisa de internet. Sem sinal, use "Tocar no mapa" ou digite as coordenadas.</p>'; return; }
-    box.innerHTML = '<div class="esq" style="height:48px"></div>';
+    box.innerHTML = '<div class="esq" style="height:44px"></div>';
     const c = cidadeDoDia() || daV('Cidades')[0];
     try {
       const r = await api('buscarEndereco', { q, perto: c && c.Lat !== '' ? { lat: Number(c.Lat), lng: Number(c.Lng) } : null });

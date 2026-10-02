@@ -184,25 +184,25 @@ function hojeDurante(v) {
   return {
     titulo: `dia ${n} de ${total}${cid ? ' · ' + cid.Nome : ''}`,
     html: `${avisosCalc()}
-      <div class="cartao" style="border-left:6px solid ${corDia(h)}">
-        <div class="peq">${prox ? 'Próximo' : 'Hoje'} · ${esc(fmtDia(h))}</div>
-        ${prox ? `<h2 style="margin:4px 0">${esc(prox.HoraInicio || '')} ${esc(prox.Titulo)}</h2><div class="peq">${lugarProx ? esc(lugarProx.Nome) + (lugarProx.Endereco ? ' · ' + esc(lugarProx.Endereco) : '') : ''}</div>
-          <div class="botoes" style="margin-top:12px">${linkRota(lugarProx) ? `<a class="btn prim" href="${linkRota(lugarProx)}" target="_blank" rel="noopener">Ir ➜</a>` : ''}<button class="btn" data-a="abrir-atividade" data-id="${prox.ID}">Detalhes</button></div>`
-        : ats.length ? `<h2 style="margin:4px 0">Roteiro de hoje concluído</h2><p class="peq">${primeiroAmanha ? 'Amanhã: ' + esc(primeiroAmanha.HoraInicio || '') + ' ' + esc(primeiroAmanha.Titulo) : 'Bom descanso!'}</p><a class="btn" href="#/plano/${primeiroAmanha ? amanha : h}">Ver roteiro</a>`
-        : `<h2 style="margin:4px 0">Dia livre</h2><p class="peq">Nada marcado no roteiro de hoje.</p><a class="btn" href="#/plano/${h}">Ver roteiro</a>`}
-      </div>
+      <section class="proximo">
+        <div class="rotulo" style="margin:0 0 8px">${prox ? 'Próximo' : 'Hoje'} · ${esc(fmtDia(h))}</div>
+        ${prox ? `${prox.HoraInicio ? `<div class="hora">${esc(prox.HoraInicio)}</div>` : ''}<h2>${esc(prox.Titulo)}</h2><div class="peq">${lugarProx ? esc(lugarProx.Nome) + (lugarProx.Endereco ? ' · ' + esc(lugarProx.Endereco) : '') : ''}</div>
+          <div class="botoes compactos" style="margin-top:14px">${linkRota(lugarProx) ? `<a class="btn escuro" href="${linkRota(lugarProx)}" target="_blank" rel="noopener">Ir ➜</a>` : ''}<button class="btn" data-a="abrir-atividade" data-id="${prox.ID}">Detalhes</button></div>`
+        : ats.length ? `<h2>Roteiro de hoje concluído</h2><p class="peq" style="margin:4px 0 12px">${primeiroAmanha ? 'Amanhã: ' + esc(primeiroAmanha.HoraInicio || '') + ' ' + esc(primeiroAmanha.Titulo) : 'Bom descanso! 🌙'}</p><a class="btn" href="#/plano/${primeiroAmanha ? amanha : h}">Ver roteiro</a>`
+        : `<h2>Dia livre ☕</h2><p class="peq" style="margin:4px 0 12px">Nada marcado no roteiro de hoje.</p><a class="btn" href="#/plano/${h}">Ver roteiro</a>`}
+      </section>
       ${carregado ? `<div class="aviso alerta">Dia puxado: ${esc(carregado)}. Vale prever uma pausa para as crianças e os mais velhos.</div>` : ''}
-      ${hosp ? `<div class="cartao toque" data-a="${hosp.reserva ? 'abrir-reserva' : 'abrir-lugar'}" data-id="${hosp.reserva ? hosp.reserva.ID : hosp.lugar.ID}">
-        <div class="cartao-topo"><span class="emoji">🛏️</span><div><div class="peq">Hospedagem de hoje</div><h3>${esc(hosp.reserva ? hosp.reserva.Titulo : hosp.lugar.Nome)}</h3>
-        <div class="peq">${esc(hosp.lugar ? hosp.lugar.Endereco || '' : '')}</div>${hosp.lugar && hosp.lugar.Telefone ? `<a href="tel:${esc(hosp.lugar.Telefone)}" class="peq">☎ ${esc(hosp.lugar.Telefone)}</a>` : ''}
-        ${hosp.reserva && hosp.reserva.Codigo ? `<div class="codigo" style="margin-top:6px">${esc(hosp.reserva.Codigo)}</div>` : ''}</div></div></div>` : ''}
+      <div class="duo ${hosp ? '' : 'um'}">
+        ${hosp ? `<div data-a="${hosp.reserva ? 'abrir-reserva' : 'abrir-lugar'}" data-id="${hosp.reserva ? hosp.reserva.ID : hosp.lugar.ID}" role="button" tabindex="0">
+          <span class="rotulo">🛏️ Hospedagem</span><b>${esc(hosp.reserva ? hosp.reserva.Titulo : hosp.lugar.Nome)}</b>
+          ${hosp.reserva && hosp.reserva.Codigo ? `<span class="codigo">${esc(hosp.reserva.Codigo)}</span>` : `<span class="peq">${esc(hosp.lugar ? hosp.lugar.Endereco || '' : '')}</span>`}</div>` : ''}
+        <div data-a="ir" data-h="#/contas" role="button" tabindex="0"><span class="rotulo">💶 Saldo da família</span>
+          <span class="medio ${saldo >= 0 ? 'valor-pos' : 'valor-neg'}">${m(Math.abs(saldo))}</span><span class="peq">${saldo > 0 ? 'a receber' : saldo < 0 ? 'a pagar' : 'tudo acertado'}</span></div>
+      </div>
       ${bilhetes.length ? `<div class="rotulo">Bilhetes de hoje</div>${bilhetes.map(bilheteHtml).join('')}` : ''}
-      <div class="cartao toque" data-a="ir" data-h="#/contas">
-        <div class="cartao-topo"><span class="emoji">💶</span><div><div class="peq">Saldo da sua família</div>
-        <div class="grande ${saldo >= 0 ? 'valor-pos' : 'valor-neg'}" style="font-size:2rem">${m(Math.abs(saldo))}</div><div class="peq">${saldo > 0 ? 'a receber' : saldo < 0 ? 'a pagar' : 'tudo acertado'}</div></div></div></div>
       <div class="secao-topo"><div class="rotulo">Roteiro de hoje</div><a href="#/plano/${h}" class="peq">abrir</a></div>
       ${ats.length ? `<div class="lista">${ats.map(a => itemHtml({ a: 'abrir-atividade', id: a.ID, ic: a.HoraInicio ? `<b style="font-size:.8rem">${esc(a.HoraInicio)}</b>` : '•', t: esc(a.Titulo), s: esc(nomeDe('Lugares', a.LugarID)), pend: a._pendente })).join('')}</div>` : '<div class="cartao peq">Nada marcado.</div>'}
-      <div class="botoes" style="margin-top:12px"><button class="btn perigo" data-a="emergencia">🆘 Emergência</button><button class="btn prim" data-a="nova-despesa">+ Despesa</button></div>`
+      <div class="botoes" style="margin-top:16px"><button class="btn perigo" data-a="emergencia">🆘 Emergência</button><button class="btn" data-a="nova-despesa">💶 Lançar despesa</button></div>`
   };
 }
 
@@ -214,7 +214,7 @@ function hojeDepois(v) {
   const avaliar = visitados.filter(l => !daV('Avaliacoes').some(a => a.LugarID === l.ID && a.PessoaID === euId()));
   return {
     html: `<div class="cartao" style="text-align:center;padding:22px"><div class="peq">Viagem encerrada em ${esc(fmtDia(v.DataFim, true))}</div><h1 style="margin:6px 0">Bem-vindos de volta!</h1></div>
-      <div class="cartao toque" data-a="ir" data-h="#/contas"><div class="peq">Saldo da sua família</div><div class="grande ${saldo >= 0 ? 'valor-pos' : 'valor-neg'}" style="font-size:2rem">${m(Math.abs(saldo))}</div>
+      <div class="cartao toque" data-a="ir" data-h="#/contas"><div class="peq">Saldo da sua família</div><div class="medio ${saldo >= 0 ? 'valor-pos' : 'valor-neg'}" style="margin:4px 0 2px">${m(Math.abs(saldo))}</div>
         <div class="peq">${saldo > 0 ? 'a receber' : saldo < 0 ? 'a pagar' : 'tudo acertado'} · ${plural(r.transferencias.length, 'transferência')} para fechar as contas</div></div>
       ${avaliar.length ? `<div class="secao-topo"><div class="rotulo">Avalie para as próximas viagens</div><span class="etiqueta">${avaliar.length}</span></div><div class="lista">${avaliar.slice(0, 8).map(l => itemHtml({ a: 'avaliar', id: l.ID, ic: ICONE_TIPO[l.Tipo] || '📍', t: esc(l.Nome), s: esc(nomeDe('Cidades', l.CidadeID)) })).join('')}</div>` : ''}
       <div class="grade"><a href="#/contas"><span class="ic">💶</span>Fechar contas</a><a href="#/diario"><span class="ic">📓</span>Diário</a><button data-a="pdf-contas"><span class="ic">📄</span>PDF das contas</button></div>`
@@ -229,7 +229,7 @@ AC['emergencia'] = () => {
   const infos = daV('Infos').filter(i => ['emergência', 'seguro', 'saúde', 'embaixada'].includes(i.Categoria) && (!i.CidadeID || !cid || i.CidadeID === cid.ID));
   abrirPainel({
     titulo: 'Emergência',
-    html: `<a class="btn prim bloco" href="tel:${esc((cid && cid.Emergencia) || '112')}" style="font-size:1.3rem;min-height:64px;background:var(--erro);border-color:var(--erro)">Ligar ${esc((cid && cid.Emergencia) || '112')}</a>
+    html: `<a class="btn prim bloco" href="tel:${esc((cid && cid.Emergencia) || '112')}" style="font-size:1.13rem;min-height:56px;background:var(--erro);border-color:var(--erro);color:#fff">Ligar ${esc((cid && cid.Emergencia) || '112')}</a>
       <p class="peq" style="text-align:center">112 funciona em toda a União Europeia, inclusive sem chip local.</p>
       ${hosp && hosp.lugar ? `<div class="cartao"><div class="peq">Endereço da hospedagem</div><h3>${esc(hosp.lugar.Nome)}</h3><p style="font-size:1.2rem;font-weight:700">${esc(hosp.lugar.Endereco || '')}</p>
         ${hosp.lugar.Telefone ? `<a class="btn bloco" href="tel:${esc(hosp.lugar.Telefone)}">☎ ${esc(hosp.lugar.Telefone)}</a>` : ''}<button class="btn bloco" style="margin-top:8px" data-a="endereco-grande">Mostrar em tela cheia (para táxi)</button></div>` : ''}
@@ -254,7 +254,7 @@ TELAS.plano = args => {
   S.ui.diaPlano = sel;
   const nIdeias = daV('Lugares').filter(l => l.Status === 'ideia').length;
   const faixa = `<div class="dias" id="faixa-dias">${dias.map(d => { const o = dataObj(d); return `<a class="dia ${d === sel ? 'on' : ''} ${d === h ? 'hoje' : ''}" href="#/plano/${d}" data-dia="${d}"><small>${DIAS_SEM[o.getDay()]}</small><b>${o.getDate()}</b><i style="background:${corDia(d)}"></i></a>`; }).join('')}
-    <a class="dia ${sel === 'ideias' ? 'on' : ''}" href="#/plano/ideias" style="width:76px"><small>lugares</small><b>💡${nIdeias}</b></a></div>`;
+    <a class="dia ${sel === 'ideias' ? 'on' : ''}" href="#/plano/ideias" style="width:64px"><small>lugares</small><b>💡${nIdeias}</b></a></div>`;
   if (sel === 'ideias') return { titulo: 'ideias de lugares', html: faixa + telaIdeias(), depois: rolarFaixa };
   const ats = atividadesDoDia(sel);
   const cid = cidadeDoDia(sel);
@@ -467,7 +467,7 @@ function contasOrcamento() {
   const linhasDim = r.orcamento[dim];
   const tot = linhasDim.reduce((a, o) => ({ o: a.o + o.orcado, g: a.g + o.gasto }), { o: 0, g: 0 });
   return `<div class="chips">${[['categoria', 'Por categoria'], ['cidade', 'Por cidade'], ['dia', 'Por dia']].map(x => `<button class="chip ${dim === x[0] ? 'on' : ''}" data-a="dim-orc" data-d="${x[0]}">${x[1]}</button>`).join('')}</div>
-    ${tot.o ? `<div class="cartao"><div class="peq">Total ${dim === 'categoria' ? 'orçado' : 'orçado nesta visão'}</div><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:1.4rem">${m(tot.g)}</b><span class="peq">de ${m(tot.o)}</span></div>
+    ${tot.o ? `<div class="cartao"><div class="peq">Total ${dim === 'categoria' ? 'orçado' : 'orçado nesta visão'}</div><div style="display:flex;justify-content:space-between;align-items:baseline"><b class="medio">${m(tot.g)}</b><span class="peq">de ${m(tot.o)}</span></div>
       <div class="barra-orc"><i class="${tot.g >= tot.o ? 'erro' : tot.g * 100 / tot.o >= lim ? 'alerta' : ''}" style="width:${Math.min(100, Math.round(tot.g * 100 / tot.o))}%"></i></div></div>` : ''}
     ${linhasDim.length ? `<div class="lista">${linhasDim.map(o => {
       const pct = o.orcado ? Math.round(o.gasto * 100 / o.orcado) : null;
@@ -490,7 +490,7 @@ function contasTotal() {
   daV('Despesas').forEach(d => { const x = r.despesas[d.ID]; if (x && x.valorAcerto !== null) porCat[d.CategoriaID] = (porCat[d.CategoriaID] || 0) + x.valorAcerto; });
   const cats = Object.keys(porCat).sort((a, b) => porCat[b] - porCat[a]);
   const maior = cats.length ? porCat[cats[0]] : 1;
-  return `<div class="cartao"><div class="peq">Custo total da viagem</div><div class="grande" style="font-size:2.2rem">${m(c.totalAcerto)}</div><div class="peq">${N_formatarMoeda(c.totalBRL, 'BRL')} · inclui ${m(c.foraAcerto)} fora da divisão (ex.: passagens)</div></div>
+  return `<div class="cartao"><div class="peq">Custo total da viagem</div><div class="grande" style="margin:4px 0">${m(c.totalAcerto)}</div><div class="peq">${N_formatarMoeda(c.totalBRL, 'BRL')} · inclui ${m(c.foraAcerto)} fora da divisão (ex.: passagens)</div></div>
     <div class="rotulo">Por família (dividido + fora da divisão)</div>
     <div class="lista">${Object.keys(c.porFamiliaAcerto).map(f => itemHtml({ ic: '👪', t: esc(nomeDe('Familias', f) || 'sem família'), s: N_formatarMoeda(c.porFamiliaBRL[f] || 0, 'BRL'), v: m(c.porFamiliaAcerto[f]) })).join('') || '<div class="item">—</div>'}</div>
     <div class="rotulo">Por categoria</div>
@@ -525,7 +525,7 @@ AC['mais-criar'] = () => {
   if (!S.viagemId) { formViagem(null); return; }
   abrirPainel({
     titulo: 'Adicionar',
-    html: `<button class="btn prim bloco" style="min-height:64px;font-size:1.15rem;margin-bottom:12px" data-a="nova-despesa">💶 Despesa</button>
+    html: `<button class="btn prim bloco" style="min-height:44px;margin-bottom:12px" data-a="nova-despesa">💶 Lançar despesa</button>
       <div class="grade">
         <button data-a="nova-atividade"><span class="ic">🗓️</span>Atividade</button><button data-a="novo-lugar"><span class="ic">📍</span>Lugar</button><button data-a="nova-reserva"><span class="ic">🎫</span>Reserva</button>
         <button data-a="nova-tarefa"><span class="ic">☑️</span>Tarefa</button><button data-a="novo-doc"><span class="ic">📎</span>Documento</button><button data-a="nova-votacao"><span class="ic">🗳️</span>Votação</button>
@@ -976,9 +976,10 @@ AC['duplicar-viagem'] = async () => {
 };
 
 /* ============================== AJUSTES ============================== */
+const FAMILIA_FONTE = { geist: "'Geist',sans-serif", sistema: '-apple-system,BlinkMacSystemFont,Roboto,sans-serif', inter: "'Inter',sans-serif", plex: "'IBM Plex Sans',sans-serif", source: "'Source Sans 3',sans-serif", classica: "'Source Serif 4',serif", editorial: "'Fraunces',serif" };
 TELAS.perfil = () => {
   const eu = ach('Pessoas', euId()) || (S.sessao && S.sessao.pessoa) || {};
-  const tema = lsGet('tema') || 'auto', letra = lsGet('letra') || '0', paleta = lsGet('paleta') || 'neutro', fonte = lsGet('fonte') || 'sistema';
+  const tema = lsGet('tema') || 'auto', letra = lsGet('letra') || '0', paleta = lsGet('paleta') || 'neutro', fonte = lsGet('fonte') || 'geist';
   FONTES.forEach(f => carregarFonte(f[0]));
   return {
     titulo: 'ajustes e aparência',
@@ -986,15 +987,15 @@ TELAS.perfil = () => {
         <button class="btn" data-a="editar-eu" style="margin-top:10px">Editar meus dados</button></div>
       <div class="rotulo">Modo</div>
       <div class="seg">${[['auto', 'Automático'], ['claro', 'Claro'], ['escuro', 'Escuro'], ['sol', '☀️ Sol']].map(t => `<button class="${tema === t[0] ? 'on' : ''}" data-a="tema" data-v="${t[0]}">${t[1]}</button>`).join('')}</div>
-      <p class="peq" style="margin-top:-6px">Automático acompanha o celular (escuro à noite). "Sol" usa contraste máximo para ler na rua.</p>
+      <p class="peq" style="margin-top:-6px">Automático acompanha o celular. O modo escuro usa fundo grafite; "Sol" usa contraste máximo para ler na rua.</p>
       <div class="rotulo">Cores</div>
       <div class="grade">${PALETAS.map(p => `<button class="opcao ${paleta === p[0] ? 'on' : ''}" data-a="paleta" data-v="${p[0]}" aria-pressed="${paleta === p[0]}">
         <span class="amostra-cor"><i style="background:${p[2]}"></i><i style="background:${p[3]}"></i></span>${esc(p[1])}</button>`).join('')}</div>
       <div class="rotulo">Fonte</div>
       <div class="lista">${FONTES.map(f => `<button type="button" class="item opcao ${fonte === f[0] ? 'on' : ''}" data-a="fonte" data-v="${f[0]}" style="${fonte === f[0] ? 'outline-offset:-3px' : ''}">
-        <span class="corpo"><span class="t" style="font-family:${f[0] === 'sistema' ? 'inherit' : `'${f[1].replace(/ \(.*\)/, '').replace('Clássica', 'Source Serif 4').replace('Editorial', 'Fraunces')}',sans-serif`};font-size:1.1rem">${esc(f[1])} · Bruxelas 10:00 · € 48,90</span><span class="s">${esc(f[2])}</span></span>${fonte === f[0] ? '<span class="v">✓</span>' : ''}</button>`).join('')}</div>
+        <span class="corpo"><span class="t" style="font-family:${FAMILIA_FONTE[f[0]]};font-size:1.07rem">${esc(f[1])} · Bruxelas 10:00 · € 48,90</span><span class="s">${esc(f[2])}</span></span>${fonte === f[0] ? '<span class="v">✓</span>' : ''}</button>`).join('')}</div>
       <div class="rotulo">Tamanho do texto</div>
-      <div class="seg">${[['0', 'Aa'], ['1', 'Aa+'], ['2', 'Aa++'], ['3', 'Aa+++']].map(t => `<button class="${letra === t[0] ? 'on' : ''}" data-a="letra" data-v="${t[0]}" style="font-size:${1 + Number(t[0]) * 0.1}rem">${t[1]}</button>`).join('')}</div>
+      <div class="seg">${[['0', 'Aa'], ['1', 'Aa+'], ['2', 'Aa++'], ['3', 'Aa+++']].map(t => `<button class="${letra === t[0] ? 'on' : ''}" data-a="letra" data-v="${t[0]}" style="font-size:${0.87 + Number(t[0]) * 0.08}rem">${t[1]}</button>`).join('')}</div>
       <p class="mpeq">A aparência vale só para este aparelho. Fontes diferentes da do sistema são baixadas na primeira vez (precisa de internet).</p>
       <div class="rotulo">Acesso</div>
       <div class="lista">${itemHtml({ a: 'trocar-pin', ic: '🔑', t: 'Trocar meu PIN' })}${itemHtml({ a: 'sair-todos', ic: '📵', t: 'Sair de todos os aparelhos' })}
