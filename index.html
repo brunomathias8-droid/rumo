@@ -158,7 +158,12 @@ button.item:hover,a.item:hover,.item[data-a]:hover{background:color-mix(in srgb,
 .item .s{font-size:.87rem;color:var(--tinta2);display:block;overflow:hidden;text-overflow:ellipsis}
 .item .v{font-weight:500;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
 .emoji{min-width:32px;width:auto;padding:0 5px;height:32px;border-radius:8px;background:var(--cartao2);display:grid;place-items:center;font-size:1rem;flex:none;line-height:1}
-.emoji b{font-family:var(--mono);font-weight:500!important;font-size:.8rem!important;color:var(--tinta2)}
+.emoji b{font-family:var(--mono);font-weight:500!important;font-size:.8rem!important;color:inherit}
+.emoji:not([style]) b{color:var(--tinta2)}
+.item>button.corpo{background:none;border:0;padding:0;text-align:left;color:inherit;cursor:pointer;font:inherit}
+.item.parada{cursor:default;gap:10px;padding-right:6px}
+.item.parada .alca-arr{width:32px;height:40px;display:grid;place-items:center;color:var(--tinta3);cursor:grab;touch-action:none;flex:none;font-size:1rem}
+.sortable-chosen{background:var(--cartao2)}
 .etiqueta{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:999px;font-size:.75rem;font-weight:500;background:var(--cartao2);color:var(--tinta2);white-space:nowrap}
 .etiqueta.ok{background:var(--ok-suave);color:var(--ok)} .etiqueta.alerta{background:var(--alerta-suave);color:var(--alerta)} .etiqueta.erro{background:var(--erro-suave);color:var(--erro)} .etiqueta.info{background:var(--info-suave);color:var(--info)}
 .pendente{opacity:.7} .pendente .t::after{content:" ⟳";font-size:.8em;color:var(--alerta)}
@@ -362,8 +367,9 @@ button.item:hover,a.item:hover,.item[data-a]:hover{background:color-mix(in srgb,
   .barra a:hover{background:var(--cartao2);text-decoration:none}
   .barra a .ic{font-size:1rem}
   .barra a.ativo{background:var(--cartao2);color:var(--tinta)}
-  .barra .fab-casa{order:-1;display:block;margin-bottom:14px}
-  .fab{width:100%;height:36px;border-radius:var(--raio-p);display:flex;gap:6px;font-size:.93rem;font-weight:500}
+  .barra>div{order:-1;display:block;margin:0 0 14px}
+  .fab{width:100%;height:38px;padding:0 12px;border-radius:var(--raio-p);display:flex;align-items:center;justify-content:center;gap:8px;font-size:.93rem;font-weight:500}
+  .fab:hover{background:color-mix(in srgb,var(--acao) 88%,#000)}
   .fab .ico{width:16px;height:16px}
   .fab .fab-txt{display:inline}
   .torrada{bottom:24px;left:calc(var(--lateral) + 24px)}
