@@ -126,7 +126,7 @@ main.largo{max-width:none;padding:0}
 
 /* barra de navegação: emojis em cinza; o ativo ganha cor */
 .barra{position:fixed;left:0;right:0;bottom:0;z-index:30;background:color-mix(in srgb,var(--cartao) 94%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  border-top:var(--borda) solid var(--linha);display:grid;grid-template-columns:repeat(5,1fr);align-items:center;padding-bottom:var(--sb);height:calc(var(--barra) + var(--sb))}
+  border-top:var(--borda) solid var(--linha);display:grid;grid-template-columns:repeat(5,1fr);align-items:center;padding-bottom:var(--sb);height:calc(var(--barra) + var(--sb));transform:translateZ(0)}
 .barra a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-decoration:none;color:var(--tinta3);font-size:.73rem;font-weight:500;min-height:48px}
 .barra a .ic{font-size:1.15rem;line-height:1;filter:grayscale(1);opacity:.55;transition:filter .15s,opacity .15s}
 .barra a.ativo{color:var(--tinta)}
@@ -277,7 +277,8 @@ button.item:hover,a.item:hover,.item[data-a]:hover{background:color-mix(in srgb,
 .sortable-ghost{opacity:.4}
 
 /* ---------- mapa ---------- */
-.mapa-casca{position:relative;height:calc(100dvh - var(--topo) - var(--st) - var(--barra) - var(--sb));min-height:360px}
+/* O mapa ocupa exatamente o espaço entre o topo e a barra de baixo (posição fixa: não depende de 100dvh, que varia no Safari) */
+.mapa-casca{position:fixed;left:0;right:0;top:var(--mapa-topo,calc(var(--st) + 57px));bottom:calc(var(--barra) + var(--sb));z-index:1;isolation:isolate;overflow:hidden}
 #mapa{position:absolute;inset:0;background:var(--cartao2)}
 .mapa-filtros{position:absolute;top:10px;left:10px;right:10px;z-index:3}
 .mapa-filtros .chips{padding-bottom:4px}
@@ -285,7 +286,12 @@ button.item:hover,a.item:hover,.item[data-a]:hover{background:color-mix(in srgb,
 .mapa-acoes{position:absolute;right:10px;z-index:3;display:flex;flex-direction:column;gap:8px}
 .mapa-acoes .icone-btn{box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .mapa-lista{position:absolute;left:0;right:0;bottom:0;z-index:4;background:var(--papel);border-radius:16px 16px 0 0;box-shadow:var(--sombra-flutua);border-top:var(--borda) solid var(--linha);display:flex;flex-direction:column;transition:height .2s;height:34%}
-.mapa-lista[data-pos="0"]{height:72px} .mapa-lista[data-pos="2"]{height:82%}
+.mapa-lista[data-pos="0"]{height:76px}
+.mapa-lista .alca{min-height:28px}
+.poi-det{display:grid;grid-template-columns:22px 1fr;gap:6px 10px;font-size:.93rem;margin:4px 0 14px}
+.poi-det>span:nth-child(odd){text-align:center}
+.poi-dias{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
+.poi-dias::-webkit-scrollbar{display:none} .mapa-lista[data-pos="2"]{height:82%}
 .mapa-lista .conteudo{overflow-y:auto;padding:0 12px 12px;flex:1}
 .mapa-aviso{position:absolute;left:50%;transform:translateX(-50%);top:56px;z-index:3;background:var(--alerta-suave);color:var(--tinta);border:1px solid color-mix(in srgb,var(--alerta) 40%,transparent);border-radius:999px;padding:3px 12px;font-size:.8rem}
 @media (min-width:900px){
@@ -379,7 +385,7 @@ button.item:hover,a.item:hover,.item[data-a]:hover{background:color-mix(in srgb,
   .painel .cab{padding:18px 20px 12px}
   .painel .conteudo{padding:4px 20px 20px}
   .painel .rodape{padding:12px 20px 16px}
-  .mapa-casca{height:calc(100dvh - 60px)}
+  .mapa-casca{left:var(--lateral);bottom:0}
   .grade{grid-template-columns:repeat(4,1fr)}
   .duo .medio{font-size:1.6rem}
 }

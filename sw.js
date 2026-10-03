@@ -1,5 +1,5 @@
 /* sw.js — faz o app abrir sem internet. Troque VERSAO a cada publicação para os aparelhos receberem a nova versão. */
-const VERSAO = 'rumo-v1.4.0';
+const VERSAO = 'rumo-v1.5.0';
 const CASCA = ['./', 'index.html', 'config.js', 'nucleo.js', 'app-base.js', 'app-formularios.js', 'app-telas.js', 'app-mapa.js',
   'manifest.webmanifest', 'icones/icone.svg', 'icones/icone-192.png', 'icones/apple-touch-icon.png'];
 const LIMITE_MAPA = 1500; // fundo do mapa já visto (blocos) guardado para rever sem internet

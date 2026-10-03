@@ -71,7 +71,7 @@ TELAS.mapa = () => {
       <section class="mapa-lista" data-pos="${E.lista}" id="mapa-lista"><div class="alca" data-a="mapa-lista-pos" style="padding:10px 0 6px;display:grid;place-items:center;cursor:pointer"><i style="width:44px;height:5px;border-radius:3px;background:var(--linha)"></i></div>
         <div class="conteudo" id="mapa-lista-conteudo">${listaMapaHtml()}</div></section>
     </div>`,
-    depois: () => { iniciarMapa(); ativarArrastarRota(); }
+    depois: () => { medirTopoMapa(); iniciarMapa(); ativarArrastarRota(); }
   };
 };
 TELAS.mapa.atualizar = () => {
@@ -166,6 +166,7 @@ async function iniciarMapa() {
   map.on('style.load', pronto);
   map.on('moveend', () => desenharMarcadores());
   map.on('contextmenu', e => pontoNovo(e.lngLat));
+  ligarPontosDeInteresse(map);
   ligarToqueLongo(map);
   if (MAPA.pos) mostrarEu();
 }
@@ -339,6 +340,7 @@ function ligarListaArrastavel() {
     if (Math.abs(dy) < 8) return; // toque simples é tratado pelo data-a
     E.lista = Math.max(0, Math.min(2, E.lista + (dy < 0 ? 1 : -1)));
     lista.dataset.pos = E.lista;
+    if (!E.lista) { const c = $('#mapa-lista-conteudo'); if (c) c.scrollTop = 0; }
     S.ui.ignorarToqueLista = true;
   });
 }
@@ -349,6 +351,7 @@ AC['mapa-lista-pos'] = () => {
   const E = estadoMapa();
   E.lista = (E.lista + 1) % 3;
   $('#mapa-lista').dataset.pos = E.lista;
+  if (!E.lista) { const c = $('#mapa-lista-conteudo'); if (c) c.scrollTop = 0; }
 };
 AC['mapa-rota'] = () => { const E = estadoMapa(); E.rota = !E.rota; if (E.rota) { E.lista = 1; } TELAS.mapa.atualizar(); desenharPontos(true); };
 AC['mapa-dia'] = () => {
@@ -504,4 +507,142 @@ AC['rota-otimizar'] = () => {
   if (o.atual - o.km < 0.05 || o.atual - o.km < o.atual * 0.03) { toast('A ordem atual já é a mais curta (ou quase).'); return; }
   S.ui.erroRota = null;
   reordenarDia(dia, o.ids, `Nova ordem: ~${(o.atual - o.km).toFixed(1).replace('.', ',')} km a menos`);
+};
+
+/* ---------- altura do mapa: entre o topo e a barra de baixo ---------- */
+function medirTopoMapa() {
+  const t = $('.topo');
+  if (t) document.documentElement.style.setProperty('--mapa-topo', Math.round(t.getBoundingClientRect().bottom) + 'px');
+}
+window.addEventListener('resize', () => { if (rotaAtual().nome === 'mapa') { medirTopoMapa(); if (MAPA.map) MAPA.map.resize(); } });
+
+/* ============================== pontos de interesse do mapa base ==============================
+   Museus, restaurantes, estações etc. vêm desenhados no fundo do mapa (dados do OpenStreetMap).
+   Tocar num deles abre os detalhes e permite salvar em Lugares ou pôr no roteiro. */
+const POI_CLASSES = {
+  restaurant: ['restaurante', '🍽️', 'Restaurante'], fast_food: ['restaurante', '🍔', 'Lanchonete'], cafe: ['restaurante', '☕', 'Café'],
+  bar: ['restaurante', '🍺', 'Bar'], beer: ['restaurante', '🍺', 'Cervejaria'], ice_cream: ['restaurante', '🍦', 'Sorveteria'], bakery: ['restaurante', '🥐', 'Padaria'],
+  museum: ['atividade', '🏛️', 'Museu'], attraction: ['atividade', '⭐', 'Atração'], art_gallery: ['atividade', '🖼️', 'Galeria de arte'],
+  castle: ['atividade', '🏰', 'Castelo'], monument: ['atividade', '🗿', 'Monumento'], theatre: ['atividade', '🎭', 'Teatro'], cinema: ['atividade', '🎬', 'Cinema'],
+  zoo: ['atividade', '🦁', 'Zoológico'], aquarium: ['atividade', '🐠', 'Aquário'], theme_park: ['atividade', '🎢', 'Parque de diversões'], playground: ['atividade', '🛝', 'Parquinho'],
+  park: ['interesse', '🌳', 'Parque'], garden: ['interesse', '🌷', 'Jardim'], viewpoint: ['interesse', '🔭', 'Mirante'], place_of_worship: ['interesse', '⛪', 'Templo / igreja'],
+  lodging: ['hospedagem', '🛏️', 'Hospedagem'], hotel: ['hospedagem', '🛏️', 'Hotel'],
+  railway: ['transporte', '🚆', 'Estação de trem'], bus: ['transporte', '🚌', 'Ponto de ônibus'], tram: ['transporte', '🚋', 'Bonde'], subway: ['transporte', '🚇', 'Metrô'],
+  ferry_terminal: ['transporte', '⛴️', 'Barco'], aerialway: ['transporte', '🚡', 'Teleférico'], parking: ['transporte', '🅿️', 'Estacionamento'], fuel: ['transporte', '⛽', 'Posto'],
+  shop: ['interesse', '🛍️', 'Loja'], grocery: ['interesse', '🛒', 'Mercado'], supermarket: ['interesse', '🛒', 'Supermercado'], pharmacy: ['interesse', '💊', 'Farmácia'],
+  hospital: ['interesse', '🏥', 'Hospital'], toilets: ['interesse', '🚻', 'Banheiro'], information: ['interesse', 'ℹ️', 'Informação turística']
+};
+function poiDoMapa(map, ponto) {
+  const r = 14; // área de toque generosa (dedo)
+  let fs = [];
+  try { fs = map.queryRenderedFeatures([[ponto.x - r, ponto.y - r], [ponto.x + r, ponto.y + r]]); } catch (e) { return null; }
+  const cand = fs.filter(f => f.properties && (f.properties.name || f.properties['name:pt']) && f.geometry && f.geometry.type === 'Point' &&
+    /poi|aerodrome|transit|station/i.test(f.sourceLayer || f.layer.id));
+  if (!cand.length) return null;
+  const d = f => { const p = map.project(f.geometry.coordinates); return Math.hypot(p.x - ponto.x, p.y - ponto.y); };
+  const f = cand.sort((a, b) => d(a) - d(b))[0];
+  const pr = f.properties;
+  const cls = POI_CLASSES[pr.subclass] || POI_CLASSES[pr.class] || ['interesse', '📍', String(pr.subclass || pr.class || 'Ponto de interesse').replace(/_/g, ' ')];
+  return { nome: pr['name:pt'] || pr.name, lng: +f.geometry.coordinates[0].toFixed(6), lat: +f.geometry.coordinates[1].toFixed(6), tipo: cls[0], ic: cls[1], cat: cls[2] };
+}
+function ligarPontosDeInteresse(map) {
+  map.on('click', e => {
+    const p = poiDoMapa(map, e.point);
+    if (!p) return;
+    if (S.ui.escolherNoMapa) { pontoNovo({ lat: p.lat, lng: p.lng }); return; } // escolhendo o ponto de um lugar: usa o local tocado
+    abrirPoi(p);
+  });
+  // No computador, a mãozinha indica o que é clicável
+  map.on('mousemove', e => { map.getCanvas().style.cursor = poiDoMapa(map, e.point) ? 'pointer' : ''; });
+}
+function lugarParecido(p) {
+  const n = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+  return daV('Lugares').find(l => l.Lat !== '' && N_distKm(p.lat, p.lng, +l.Lat, +l.Lng) < 0.12 && (n(l.Nome) === n(p.nome) || N_distKm(p.lat, p.lng, +l.Lat, +l.Lng) < 0.02)) || null;
+}
+function diaSugeridoPoi(p) {
+  const E = estadoMapa();
+  if (E.dia) return E.dia;
+  if (E.rota) return diaDaRota(E);
+  const c = cidadeMaisPerto(p);
+  const dias = diasDaViagem();
+  const h = hoje();
+  const daCid = c ? dias.filter(d => { const cd = cidadeDoDia(d); return cd && cd.ID === c.ID; }) : [];
+  return daCid.find(d => d >= h) || daCid[0] || (dias.includes(h) ? h : dias[0]);
+}
+function cidadeMaisPerto(p) { return daV('Cidades').filter(x => x.Lat !== '').sort((a, b) => N_distKm(p.lat, p.lng, +a.Lat, +a.Lng) - N_distKm(p.lat, p.lng, +b.Lat, +b.Lng))[0] || null; }
+function linkGooglePoi(p) {
+  const c = cidadeMaisPerto(p);
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.nome + (c ? ', ' + c.Nome : ''));
+}
+
+function abrirPoi(p) {
+  if (MAPA.temp) MAPA.temp.remove();
+  const el = document.createElement('div'); el.innerHTML = `<div class="marcador" style="background:var(--tinta)"><span>${p.ic}</span></div>`;
+  MAPA.temp = new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, 7] }).setLngLat([p.lng, p.lat]).addTo(MAPA.map);
+  S.ui.poi = p; S.ui.poiDia = diaSugeridoPoi(p); S.ui.poiDet = null;
+  abrirPainel({ titulo: p.nome, render: poiHtml, aoFechar: () => { if (MAPA.temp) { MAPA.temp.remove(); MAPA.temp = null; } S.ui.poi = null; } });
+  if (navigator.onLine) {
+    api('enderecoDoPonto', { lat: p.lat, lng: p.lng, nome: p.nome, detalhes: true }).then(r => {
+      if (S.ui.poi !== p) return;
+      S.ui.poiDet = r || {}; pintarPainel();
+    }).catch(() => { if (S.ui.poi === p) { S.ui.poiDet = { erro: true }; pintarPainel(); } });
+  }
+}
+function poiHtml() {
+  const p = S.ui.poi; if (!p) return '';
+  const d = S.ui.poiDet;
+  const ja = lugarParecido(p);
+  const c = cidadeMaisPerto(p);
+  const linha = (ic, html) => `<span>${ic}</span><span>${html}</span>`;
+  const det = d && !d.erro ? [
+    d.endereco ? linha('📍', esc(d.endereco)) : '',
+    d.horario ? linha('🕘', esc(d.horario)) : '',
+    d.telefone ? linha('☎️', `<a href="tel:${esc(d.telefone)}">${esc(d.telefone)}</a>`) : '',
+    d.site ? linha('🌐', `<a href="${esc(d.site)}" target="_blank" rel="noopener">${esc(d.site.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''))}</a>`) : '',
+    d.wikipedia ? linha('📖', `<a href="${esc(d.wikipedia)}" target="_blank" rel="noopener">Wikipédia</a>`) : '',
+    d.acessivel ? linha('♿', esc(d.acessivel)) : ''
+  ].join('') : '';
+  const dias = diasDaViagem();
+  return `<div class="peq" style="margin-top:-6px">${p.ic} ${esc(p.cat)}${c ? ' · ' + esc(c.Nome) : ''}</div>
+    ${!navigator.onLine ? '<p class="mpeq">Sem internet: endereço e horários aparecem quando houver sinal.</p>'
+      : !d ? '<div class="esq" style="height:56px;margin-top:12px"></div>'
+      : `<div class="poi-det">${det || linha('ℹ️', '<span class="peq">Sem mais detalhes no OpenStreetMap. Veja fotos, avaliações e horários no Google Maps.</span>')}</div>`}
+    ${ja ? `<div class="aviso info">Já está em Lugares${ja.Status !== 'ideia' ? ' (' + esc(ja.Status) + ')' : ''}. <a href="#" data-a="abrir-lugar" data-id="${ja.ID}">Abrir</a></div>` : ''}
+    ${podeEditar() && dias.length ? `<div class="rotulo" style="margin-top:6px">Pôr no roteiro de</div>
+      <div class="poi-dias">${dias.map(x => { const o = dataObj(x); return `<button class="chip ${x === S.ui.poiDia ? 'on' : ''}" data-a="poi-dia" data-dia="${x}"><i class="pt" style="background:${corDia(x)}"></i>${DIAS_SEM[o.getDay()]} ${o.getDate()}</button>`; }).join('')}</div>` : ''}
+    <div class="botoes" style="margin-top:4px">
+      ${podeEditar() ? `<button class="btn prim" data-a="poi-roteiro">🗓️ Pôr no roteiro · ${esc(fmtDiaCurto(S.ui.poiDia))}</button>
+        ${ja ? '' : '<button class="btn" data-a="poi-salvar">＋ Salvar em Lugares</button>'}` : ''}
+      <a class="btn" href="${linkGooglePoi(p)}" target="_blank" rel="noopener">Ver no Google Maps</a>
+    </div>
+    <p class="mpeq" style="margin-top:10px">Dados do OpenStreetMap. Fotos e avaliações ficam no Google Maps.</p>`;
+}
+AC['poi-dia'] = el => { S.ui.poiDia = el.dataset.dia; pintarPainel(); };
+function salvarPoiComoLugar(status) {
+  const p = S.ui.poi, d = S.ui.poiDet && !S.ui.poiDet.erro ? S.ui.poiDet : {};
+  const ja = lugarParecido(p);
+  if (ja) { if (status !== 'ideia' && ja.Status === 'ideia') salvar('Lugares', ja.ID, { Status: status }); return ja.ID; }
+  const c = cidadeMaisPerto(p);
+  const notas = [d.horario ? 'Horário: ' + d.horario : '', d.wikipedia ? d.wikipedia : ''].filter(Boolean).join('\n');
+  return salvar('Lugares', null, { Nome: p.nome, Tipo: p.tipo, Status: status, CidadeID: c ? c.ID : '', Endereco: d.endereco || '', Lat: p.lat, Lng: p.lng, FonteCoord: 'toque',
+    Link: d.site || '', Telefone: d.telefone || '', Acessibilidade: d.acessivel || '', Notas: notas });
+}
+AC['poi-salvar'] = () => {
+  const p = S.ui.poi; if (!p) return;
+  let id;
+  emLote('Lugar salvo', () => { id = salvarPoiComoLugar('ideia'); });
+  if (id && typeof id === 'object') id = id.ID;
+  fecharPainel();
+};
+AC['poi-roteiro'] = () => {
+  const p = S.ui.poi, dia = S.ui.poiDia; if (!p || !dia) return;
+  emLote(`Incluído no roteiro de ${fmtDiaCurto(dia)}`, () => {
+    let lid = salvarPoiComoLugar('agendado');
+    if (lid && typeof lid === 'object') lid = lid.ID;
+    const ult = atividadesDoDia(dia).slice(-1)[0];
+    salvar('Atividades', null, { Data: dia, Titulo: p.nome, LugarID: lid, Tipo: p.tipo === 'restaurante' ? 'refeição' : 'atividade', Ordem: ult ? Number(ult.Ordem || 0) + 10 : 10 });
+  });
+  fecharPainel();
+  const E = estadoMapa();
+  if (E.rota && diaDaRota(E) === dia) { TELAS.mapa.atualizar(); desenharPontos(false); }
 };
