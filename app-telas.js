@@ -1022,6 +1022,7 @@ TELAS.perfil = () => {
     titulo: 'ajustes e aparência',
     html: `<div class="cartao"><div class="cartao-topo">${avatar(eu.ID, 48)}<div><h2>${esc(eu.Nome)}</h2><div class="peq">${esc(eu.Email || 'sem e-mail')}${eu.Pix ? ' · Pix ' + esc(eu.Pix) : ''}</div></div></div>
         <button class="btn" data-a="editar-eu" style="margin-top:10px">Editar meus dados</button></div>
+      ${secaoPush()}
       <div class="rotulo">Modo</div>
       <div class="seg">${[['auto', 'Automático'], ['claro', 'Claro'], ['escuro', 'Escuro'], ['sol', '☀️ Sol']].map(t => `<button class="${tema === t[0] ? 'on' : ''}" data-a="tema" data-v="${t[0]}">${t[1]}</button>`).join('')}</div>
       <p class="peq" style="margin-top:-6px">Automático acompanha o celular. O modo escuro usa fundo grafite; "Sol" usa contraste máximo para ler na rua.</p>

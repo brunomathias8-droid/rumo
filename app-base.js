@@ -672,6 +672,8 @@ function sessaoExpirada() {
 }
 
 async function sair() {
+  const tokPush = lsGet('pushToken');
+  if (tokPush) { try { await api('removerPush', { token_push: tokPush }); } catch (e) { /* ok */ } lsSet('pushToken', null); lsSet('pushVerif', null); }
   try { await api('sair', {}); } catch (e) { /* sai mesmo sem internet */ }
   S.sessao = null; S.tab = {}; S.fila = []; S.seq = 0; S.viagemId = null; S.offline.clear(); S.conhecidas = []; S.part = {};
   await idb.limpar().catch(() => { });
@@ -722,6 +724,7 @@ async function iniciar() {
   render();
   registrarSW();
   if (S.sessao) sincronizar();
+  setTimeout(() => { if (typeof revisarPush === 'function') revisarPush(); }, 8000);
   setInterval(() => { if (document.visibilityState === 'visible' && S.sessao) sincronizar(); }, (CFG.intervaloSincSeg || 30) * 1000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.sessao) sincronizar(); });
   window.addEventListener('online', () => { S.online = true; atualizarStatus(); sincronizar(); });

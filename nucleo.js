@@ -119,7 +119,8 @@ var ABAS_INTERNAS = {
   ResumoOrcamento: ['ViagemID', 'Dimensao', 'Chave', 'Nome', 'Orcado', 'Gasto', 'Diferenca', 'Percentual', 'AtualizadoEm'],
   Rotas: ['Chave', 'Modo', 'Coords', 'DistanciaM', 'DuracaoS', 'Trechos', 'Fonte', 'AtualizadoEm'],
   PerguntasIA: ['Quando', 'PessoaID', 'Pergunta', 'Resposta'],
-  Erros: ['Quando', 'Origem', 'Mensagem', 'Detalhe']
+  Erros: ['Quando', 'Origem', 'Mensagem', 'Detalhe'],
+  Dispositivos: ['ID', 'PessoaID', 'Token', 'Plataforma', 'Tipos', 'CriadoEm', 'UltimoUso', 'Ativo', 'UltimoErro']
 };
 
 var ESQUEMA = (function () {
@@ -639,6 +640,7 @@ function N_cidadeDoDia(cidades, data) {
 /* ============================== AJUDA (perguntas frequentes) ============================== */
 
 var N_FAQ = [
+  ['Como recebo notificações no celular?', 'Em Mais → Ajustes → Notificações no celular, toque em Ativar notificações e permita. No iPhone, o app precisa estar instalado na tela de início (iOS 16.4 ou mais novo). Depois escolha o que quer receber: próxima atividade (30 min antes), prazos, despesas lançadas pelos outros, votações e resumo da manhã. Vale só para aquele aparelho.'],
   ['Como lanço uma despesa rápido?', 'Toque no + no meio da barra de baixo, digite o valor, escolha a categoria e toque em Salvar. Quem pagou (você), a moeda (a da cidade do dia), a data (hoje) e a divisão (a última usada) já vêm preenchidos; toque na linha de resumo para mudar.'],
   ['O app funciona sem internet?', 'Sim, depois de instalado na tela inicial. Roteiro, reservas, lugares, informações, checklists e saldos ficam no aparelho. O que você lançar sem sinal entra na fila e é enviado quando a conexão voltar (o contador aparece no topo). Busca de endereço, cotação nova e votação precisam de internet.'],
   ['Por que preciso instalar na tela inicial do iPhone?', 'No iPhone, o Safari apaga os dados de sites não instalados depois de alguns dias sem uso. Instalado na tela inicial, o app guarda os dados e abre sem internet. No Safari: botão Compartilhar → Adicionar à Tela de Início.'],

@@ -1,6 +1,6 @@
 /* sw.js — faz o app abrir sem internet. Troque VERSAO a cada publicação para os aparelhos receberem a nova versão. */
-const VERSAO = 'rumo-v1.5.0';
-const CASCA = ['./', 'index.html', 'config.js', 'nucleo.js', 'app-base.js', 'app-formularios.js', 'app-telas.js', 'app-mapa.js',
+const VERSAO = 'rumo-v1.6.0';
+const CASCA = ['./', 'index.html', 'config.js', 'nucleo.js', 'app-base.js', 'app-formularios.js', 'app-telas.js', 'app-mapa.js', 'app-push.js',
   'manifest.webmanifest', 'icones/icone.svg', 'icones/icone-192.png', 'icones/apple-touch-icon.png'];
 const LIMITE_MAPA = 1500; // fundo do mapa já visto (blocos) guardado para rever sem internet
 
@@ -19,7 +19,7 @@ self.addEventListener('fetch', e => {
   if (/script\.google(usercontent)?\.com$/.test(url.hostname)) return;
 
   // Bibliotecas (MapLibre, Sortable) e fontes: primeiro o cache
-  if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url.hostname)) {
+  if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com|www\.gstatic\.com/.test(url.hostname)) {
     e.respondWith(caches.open('rumo-libs').then(async c => {
       const hit = await c.match(req);
       if (hit) return hit;
@@ -61,3 +61,26 @@ async function aparar(c) {
     if (ks.length > LIMITE_MAPA) await Promise.all(ks.slice(0, ks.length - LIMITE_MAPA).map(k => c.delete(k)));
   } finally { aparando = false; }
 }
+
+/* ---------- notificações (push pelo Firebase Cloud Messaging) ----------
+   O servidor manda só dados {titulo, corpo, url, tag}; aqui viram a notificação.
+   Toda mensagem precisa mostrar uma notificação (o iPhone exige). */
+self.addEventListener('push', e => {
+  let p = {};
+  try { p = e.data ? e.data.json() : {}; } catch (x) { p = { data: { corpo: e.data ? e.data.text() : '' } }; }
+  const d = p.data || {}, n = p.notification || {};
+  const titulo = d.titulo || n.title || 'Rumo';
+  const opcoes = { body: d.corpo || n.body || '', icon: 'icones/icone-192.png', data: { url: d.url || '#/hoje' }, lang: 'pt-BR' };
+  if (d.tag) { opcoes.tag = d.tag; opcoes.renotify = true; }
+  e.waitUntil(self.registration.showNotification(titulo, opcoes));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '#/hoje';
+  const alvo = self.registration.scope + url;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(lista => {
+    const aberto = lista.find(c => c.url.startsWith(self.registration.scope));
+    if (aberto) { aberto.postMessage({ ir: url }); return aberto.focus(); }
+    return self.clients.openWindow(alvo);
+  }));
+});
