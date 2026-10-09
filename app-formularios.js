@@ -34,7 +34,7 @@ function campoHtml(c, valor, opc) {
   let inp;
   switch (c.tipo) {
     case 'longtxt': inp = `<textarea ${nm}>${esc(v)}</textarea>`; break;
-    case 'num': inp = `<input ${nm} inputmode="decimal" value="${esc(String(v).replace('.', ','))}" autocomplete="off">`; break;
+    case 'num': inp = `<input ${nm} data-num="1" inputmode="decimal" value="${esc(String(v).replace('.', ','))}" autocomplete="off">`; break;
     case 'int': inp = `<input ${nm} inputmode="numeric" pattern="[0-9]*" value="${esc(v)}" autocomplete="off">`; break;
     case 'data': inp = `<input ${nm} type="date" value="${esc(v)}">`; break;
     case 'hora': inp = `<input ${nm} type="time" value="${esc(v)}">`; break;
@@ -59,6 +59,9 @@ function campoHtml(c, valor, opc) {
   return `<label class="campo"><span>${esc(rot)}${c.obrig ? ' <b class="obr">*</b>' : ''}</span>${inp}${ajuda}</label>`;
 }
 
+/** Número digitado no formato brasileiro ("1.234,56") → número; texto inválido segue como está para a validação acusar. */
+function numParaSalvar(v) { const n = numBR(v); return n === null ? String(v || '').trim() : n; }
+
 function lerCampos(raiz, nomes) {
   const out = {};
   nomes.forEach(n => {
@@ -66,7 +69,7 @@ function lerCampos(raiz, nomes) {
     if (box) { out[n] = $$('input:checked', box).map(i => i.value).join(','); return; }
     const el = raiz.querySelector(`[data-campo="${n}"]`);
     if (!el) return;
-    out[n] = el.type === 'checkbox' ? (el.checked ? 'sim' : 'não') : el.value;
+    out[n] = el.type === 'checkbox' ? (el.checked ? 'sim' : 'não') : el.dataset.num ? numParaSalvar(el.value) : el.value;
   });
   return out;
 }
@@ -81,7 +84,8 @@ function formulario(aba, id, opc) {
   const atual = id ? ach(aba, id) : null;
   const nomes = (opc.campos || esq.campos.filter(c => !c.calc && !c.servidor).map(c => c.nome)).filter(n => !(opc.fixos && n in opc.fixos));
   const val = n => atual ? atual[n] : (opc.padroes && n in opc.padroes ? opc.padroes[n] : esq.porNome[n].padrao);
-  const editavel = podeEditar() || (esq.global && aba !== 'Pessoas');
+  // Criar viagem e editar os próprios dados vale para qualquer um; o resto segue o papel na viagem aberta
+  const editavel = (aba === 'Viagens' && !id) || (aba === 'Pessoas' && !!id && id === euId()) || podeEditar();
   abrirPainel({
     titulo: opc.titulo || (atual ? 'Editar' : 'Novo'),
     html: `${opc.topo || ''}<form id="form-generico" autocomplete="off">${nomes.map(n => campoHtml(esq.porNome[n], val(n), opc)).join('')}</form>`,
@@ -138,7 +142,7 @@ function formDespesa(id, pre) {
     moeda: atual ? atual.Moeda : (pre.Moeda || (cid && cid.Moeda) || moedaAcerto()),
     cat: atual ? atual.CategoriaID : (pre.CategoriaID || ''),
     pagoPor: atual ? atual.PagoPor : euId(),
-    data: atual ? atual.Data : (pre.Data || (faseViagem() === 'durante' ? hoje() : hoje())),
+    data: atual ? atual.Data : (pre.Data || hoje()),
     cidade: atual ? atual.CidadeID : (pre.CidadeID || (cid ? cid.ID : '')),
     tipo: atual ? atual.TipoDivisao : (pre.TipoDivisao || lsGet('ultimaDivisao') || 'família'),
     fora: atual ? atual.ForaDivisao === 'sim' : !!pre.ForaDivisao,
@@ -217,8 +221,8 @@ function formDespesa(id, pre) {
     const tx = taxa(D.moeda, ac);
     const manual = D.fonte !== 'bce';
     return {
-      Data: D.data, Descricao: D.desc, CategoriaID: D.cat, CidadeID: D.cidade, Valor: D.valor, Moeda: D.moeda,
-      Cotacao: D.moeda === ac ? 1 : (manual ? D.cot : (tx ? +tx.toFixed(8) : '')),
+      Data: D.data, Descricao: D.desc, CategoriaID: D.cat, CidadeID: D.cidade, Valor: numParaSalvar(D.valor), Moeda: D.moeda,
+      Cotacao: D.moeda === ac ? 1 : (manual ? numParaSalvar(D.cot) : (tx ? +tx.toFixed(8) : '')),
       CotacaoBRL: D.moeda === 'BRL' ? 1 : (taxa(D.moeda, 'BRL') ? +taxa(D.moeda, 'BRL').toFixed(8) : ''),
       FonteCotacao: D.moeda === ac ? 'bce' : (manual ? D.fonte : 'provisória'), DataCotacao: D.data,
       PagoPor: D.pagoPor, TipoDivisao: D.tipo, ForaDivisao: D.fora ? 'sim' : 'não', ParaFamiliaID: D.fora ? D.paraFam : '',
@@ -235,7 +239,7 @@ function formDespesa(id, pre) {
   const previa = () => {
     const val = numBR(D.valor);
     if (!val || !D.cat) return '';
-    const tmp = Object.assign({ ID: 'DSP-previa000-0000', ViagemID: S.viagemId, Excluido: 'não' }, montarCampos(), { Valor: val, Cotacao: numBR(String(montarCampos().Cotacao)) });
+    const tmp = Object.assign({ ID: 'DSP-previa000-0000', ViagemID: S.viagemId, Excluido: 'não' }, montarCampos(), { Valor: val });
     const ps = partesParaSalvar().map((p, i) => Object.assign({ ID: 'DPT-previa000-' + i, ViagemID: S.viagemId, DespesaID: tmp.ID }, p));
     const d = {}; ABAS_CALC.forEach(a => d[a] = linhas(a));
     d.Despesas = [tmp]; d.DespesaPartes = ps; d.Acertos = []; d.Orcamento = []; d.Atividades = [];
@@ -267,7 +271,7 @@ function formDespesa(id, pre) {
       r.dataset.pronto = '1';
     }
     $('#desp-info', r).innerHTML = falta.length ? `<div class="falta">Falta: ${falta.join(', ')}</div>` : `<div class="peq">${previa()}</div>`;
-    $('[data-a="desp-salvar"]', r).disabled = falta.length > 0;
+    $('[data-a="desp-salvar"]', r).disabled = falta.length > 0 || !!D.salvando;
   };
 
   abrirPainel({
@@ -336,7 +340,8 @@ function formDespesa(id, pre) {
     });
     fecharPainel();
   };
-  AC['desp-salvar'] = async () => {
+  AC['desp-salvar'] = async el => {
+    if (D.salvando) return;
     const campos = montarCampos();
     const partes = partesParaSalvar();
     if (D.tipo === 'valores' && !D.fora) {
@@ -344,25 +349,38 @@ function formDespesa(id, pre) {
       if (Math.abs(soma - Math.round(numBR(D.valor) * 100)) > 1) { toast('Os valores por pessoa precisam somar o total.'); return; }
       if (!partes.length) { toast('Digite quanto cabe a cada pessoa.'); return; }
     }
+    const val = N_validar('Despesas', campos, !!atual);
+    if (!val.ok) { toast(val.erros[0], { ms: 7000 }); return; }
     let anexo = null;
+    D.salvando = true;
+    if (el) { el.disabled = true; el.textContent = 'Salvando…'; }
     if (D.arquivo) {
       if (!navigator.onLine) toast('Sem internet: a despesa foi salva; envie o comprovante depois em Documentos.', { ms: 6000 });
       else {
         try { anexo = await enviarArquivo(D.arquivo); } catch (e) { toast('Comprovante não enviado: ' + e.message, { ms: 6000 }); }
       }
     }
-    const linha = emLote(atual ? 'Despesa alterada' : 'Despesa salva', () => {
-      const l = salvar('Despesas', id, campos, { semDesfazer: true });
-      if (D.mexeu || partesAtuais.length) {
-        partesAtuais.forEach(p => excluir('DespesaPartes', p.ID));
-        partes.forEach(p => salvar('DespesaPartes', null, Object.assign({ DespesaID: l.ID }, p)));
-      }
-      if (anexo) {
-        const a = salvar('Anexos', null, { Titulo: 'Comprovante · ' + (D.desc || nomeDe('Categorias', D.cat)), Tipo: 'outro', Visibilidade: 'grupo', NomeArquivo: anexo.nome, Mime: anexo.mime, Tamanho: anexo.tamanho, VinculoTipo: 'despesa', VinculoID: l.ID }, { extra: { arquivoId: anexo.arquivoId } });
-        salvar('Despesas', l.ID, { AnexoID: a.ID });
-      }
-      return l;
-    });
+    // o painel pode ter sido fechado durante o envio do comprovante
+    if (S.ui.despesa !== D) return;
+    let linha;
+    try {
+      linha = emLote(atual ? 'Despesa alterada' : 'Despesa salva', () => {
+        const l = salvar('Despesas', id, campos, { semDesfazer: true });
+        if (D.mexeu || partesAtuais.length) {
+          partesAtuais.forEach(p => excluir('DespesaPartes', p.ID));
+          partes.forEach(p => salvar('DespesaPartes', null, Object.assign({ DespesaID: l.ID }, p)));
+        }
+        if (anexo) {
+          const a = salvar('Anexos', null, { Titulo: 'Comprovante · ' + (D.desc || nomeDe('Categorias', D.cat)), Tipo: 'outro', Visibilidade: 'grupo', NomeArquivo: anexo.nome, Mime: anexo.mime, Tamanho: anexo.tamanho, VinculoTipo: 'despesa', VinculoID: l.ID }, { extra: { arquivoId: anexo.arquivoId } });
+          salvar('Despesas', l.ID, { AnexoID: a.ID });
+        }
+        return l;
+      });
+    } catch (e) {
+      D.salvando = false;
+      if (el) { el.disabled = false; el.textContent = atual ? 'Salvar' : 'Salvar despesa'; }
+      throw e;
+    }
     lsSet('ultimaDivisao', D.tipo);
     let rec = []; try { rec = JSON.parse(lsGet('catsRecentes') || '[]'); } catch (e) { /* ok */ }
     lsSet('catsRecentes', JSON.stringify([D.cat].concat(rec.filter(x => x !== D.cat)).slice(0, 12)));
@@ -584,10 +602,7 @@ function formViagem(id) {
     campos: ['Nome', 'DataInicio', 'DataFim', 'MoedaAcerto', 'Status', 'Notas'],
     ajuda: { MoedaAcerto: 'Todos os saldos e o acerto ficam nesta moeda (uma só, para evitar várias transferências).' },
     topo: !v ? `<label class="campo"><span>Sua família nesta viagem</span><select id="via-fam">${fams.map(f => `<option value="${f.ID}" ${f.ID === minha ? 'selected' : ''}>${esc(f.Nome)}</option>`).join('')}<option value="">Nova família</option></select></label>` : '',
-    podeExcluir: false,
-    antesSalvar: c => c,
-    extra: undefined,
-    depois: l => { if (!v) { S.viagemId = l.ID; S.part[l.ID] = { papel: 'organizador', familiaId: minha }; mudou(); ir('#/hoje'); toast('Viagem criada. Agora adicione cidades e pessoas.'); } }
+    podeExcluir: false
   });
   if (!v) {
     AC['form-salvar'] = () => {

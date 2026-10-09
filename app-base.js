@@ -33,6 +33,14 @@ function iniciais(nome) { return String(nome || '?').trim().split(/\s+/).map(p =
 function corPessoa(id) { const p = ach('Pessoas', id); if (p && p.Cor) return p.Cor; let h = 0; String(id).split('').forEach(c => h = (h * 31 + c.charCodeAt(0)) >>> 0); return CORES_DIA[h % CORES_DIA.length]; }
 function avatar(id, tam) { const p = ach('Pessoas', id); return `<span class="avatar" style="background:${esc(corPessoa(id))};${tam ? `width:${tam}px;height:${tam}px;font-size:${tam / 2.6}px` : ''}">${esc(iniciais(p ? (p.Apelido || p.Nome) : '?'))}</span>`; }
 function plural(n, s, p) { return n + ' ' + (n === 1 ? s : (p || s + 's')); }
+/** Só deixa passar links http(s); "javascript:" e afins viram vazio. */
+function urlSegura(u) { const s = String(u || '').trim(); return /^https?:\/\//i.test(s) ? s : ''; }
+/** O servidor é sempre uma implantação do Apps Script (ou o endereço fixado em config.js). */
+function apiValida(u) {
+  if (!u) return false;
+  if (CFG.api && u === CFG.api) return true;
+  try { const x = new URL(u); return x.protocol === 'https:' && x.hostname === 'script.google.com'; } catch (e) { return false; }
+}
 function lsGet(k) { try { return localStorage.getItem('rumo_' + k); } catch (e) { return null; } }
 function lsSet(k, v) { try { if (v === null) localStorage.removeItem('rumo_' + k); else localStorage.setItem('rumo_' + k, v); } catch (e) { /* sem armazenamento */ } }
 
@@ -345,7 +353,6 @@ async function sincronizar(opc) {
     S.sincronizando = false;
     atualizarStatus();
     if (S.sincDeNovo || (S.fila.length && S.online && !S.erroSinc && lote.length === 80)) { S.sincDeNovo = false; setTimeout(sincronizar, 300); }
-    else if (S.sincDeNovo) S.sincDeNovo = false;
   }
 }
 
@@ -432,14 +439,17 @@ function b64ParaBlob(b64, mime) { const bin = atob(b64); const u = new Uint8Arra
 function arquivoParaB64(arq) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(arq); }); }
 
 /** Abre/compartilha um arquivo (base64). No celular usa o menu de compartilhar quando existe. */
+const MIME_SEGURO = /^(image\/(png|jpeg|gif|webp|heic|heif)|application\/pdf)$/i;
 async function abrirArquivo(a) {
-  const blob = b64ParaBlob(a.base64, a.mime);
-  const arq = new File([blob], a.nome || 'arquivo', { type: a.mime });
+  // Tipos fora da lista (ex.: text/html) poderiam rodar como página do app ao abrir: viram download genérico
+  const mime = MIME_SEGURO.test(a.mime || '') ? a.mime : 'application/octet-stream';
+  const blob = b64ParaBlob(a.base64, mime);
+  const arq = new File([blob], a.nome || 'arquivo', { type: mime });
   if (navigator.canShare && navigator.canShare({ files: [arq] }) && (IOS || /Android/.test(navigator.userAgent))) {
     try { await navigator.share({ files: [arq], title: a.nome }); return; } catch (e) { if (e.name === 'AbortError') return; }
   }
   const url = URL.createObjectURL(blob);
-  if (/^image\//.test(a.mime)) {
+  if (/^image\//.test(mime)) {
     abrirPainel({ titulo: a.nome, html: `<img src="${url}" style="width:100%;border-radius:12px" alt="">` });
   } else {
     const l = document.createElement('a'); l.href = url; l.download = a.nome || 'arquivo'; l.target = '_blank'; document.body.appendChild(l); l.click(); l.remove();
@@ -543,7 +553,17 @@ AC['status'] = () => {
       ${S.erroSinc ? `<div class="item"><div class="corpo"><span class="t">Último erro</span><span class="s">${esc(S.erroSinc)}</span></div></div>` : ''}
     </div>
     <p class="peq">O que você lança sem internet fica guardado no aparelho e é enviado sozinho quando a conexão voltar. Não feche o app pelo gerenciador antes de ver "sincronizado" no topo.</p>`,
-    rodape: `<div class="botoes"><button class="btn" data-a="sinc-completa">Recarregar tudo</button><button class="btn prim" data-a="sinc-agora">Atualizar agora</button></div>` });
+    rodape: `${S.erroSinc && S.fila.length ? '<button class="btn perigo bloco" data-a="sinc-descartar" style="margin-bottom:8px">Descartar a primeira alteração da fila</button>' : ''}<div class="botoes"><button class="btn" data-a="sinc-completa">Recarregar tudo</button><button class="btn prim" data-a="sinc-agora">Atualizar agora</button></div>` });
+};
+// Se o servidor recusar sempre o mesmo lote, a fila não anda: deixa a pessoa desistir da alteração que trava
+AC['sinc-descartar'] = async () => {
+  const x = S.fila[0];
+  if (!x) return;
+  if (!(await confirmar(`Descartar "${x.op.aba} · ${x.op.acao}"? Essa alteração não será enviada e o item volta ao que era.`, { ok: 'Descartar', perigo: true }))) return;
+  S.fila = S.fila.filter(y => y !== x);
+  reverter(x);
+  S.erroSinc = null;
+  mudou(); sincronizar();
 };
 AC['sinc-agora'] = () => { fecharPainel(); S.erroSinc = null; sincronizar(); };
 AC['sinc-completa'] = () => { fecharPainel(); S.erroSinc = null; sincronizar({ completa: true }); };
@@ -558,7 +578,7 @@ function agendarRender() {
   requestAnimationFrame(() => {
     _renderPend = false;
     const foco = document.activeElement;
-    const digitando = foco && /INPUT|TEXTAREA|SELECT/.test(foco.tagName);
+    const digitando = foco && /INPUT|TEXTAREA|SELECT/.test(foco.tagName) && !['checkbox', 'radio'].includes(foco.type);
     if (_painel && _painel.o.render && !(digitando && _painel.el.contains(foco))) pintarPainel();
     if (digitando && $('main') && $('main').contains(foco)) return;
     render(true);
@@ -620,7 +640,8 @@ document.addEventListener('click', e => {
   if (!el) return;
   const fn = AC[el.dataset.a];
   if (!fn) return;
-  e.preventDefault();
+  // checkbox mantém a marcação nativa (o handler lê el.checked); o resto não segue link/envio
+  if (!(el.tagName === 'INPUT' && ['checkbox', 'radio'].includes(el.type))) e.preventDefault();
   try {
     const r = fn(el, e);
     if (r && r.catch) r.catch(err => toast(err.message, { ms: 7000 }));
@@ -709,12 +730,24 @@ function registrarSW() {
 async function iniciar() {
   aplicarTema();
   const conexao = await idb.get('kv', 'conexao').catch(() => null) || {};
-  S.api = URLP.get('api') || lsGet('api') || conexao.api || CFG.api || '';
-  S.codigo = (URLP.get('g') || lsGet('codigo') || conexao.codigo || '').toUpperCase();
-  if (URLP.get('api') || URLP.get('g')) { lsSet('api', S.api); lsSet('codigo', S.codigo); idb.set('kv', 'conexao', { api: S.api, codigo: S.codigo }).catch(() => { }); }
+  const salvo = lsGet('api') || conexao.api || CFG.api || '';
+  let apiLink = URLP.get('api') || '';
+  if (apiLink && !apiValida(apiLink)) { apiLink = ''; setTimeout(() => toast('Link de convite com servidor inválido: ignorado.', { ms: 8000 }), 500); }
+  let sessao = null;
+  try { const s = await idb.get('kv', 'sessao'); if (s && s.token) sessao = s; } catch (e) { /* sem sessão */ }
+  // Um link que troca o servidor de quem já entrou levaria o token da sessão para esse servidor: só com confirmação, e saindo da conta
+  if (apiLink && salvo && apiLink !== salvo && sessao) {
+    if (confirm('Este link é de outro servidor do Rumo. Para usá-lo, você sai da conta atual neste aparelho e as alterações não enviadas se perdem. Continuar?')) {
+      sessao = null;
+      await idb.limpar().catch(() => { });
+    } else apiLink = '';
+  }
+  const codigoLink = apiLink || !URLP.get('api') ? URLP.get('g') : null;
+  S.api = apiLink || salvo;
+  S.codigo = (codigoLink || lsGet('codigo') || conexao.codigo || '').toUpperCase();
+  if (apiLink || codigoLink) { lsSet('api', S.api); lsSet('codigo', S.codigo); idb.set('kv', 'conexao', { api: S.api, codigo: S.codigo }).catch(() => { }); }
   try {
-    const s = await idb.get('kv', 'sessao');
-    if (s && s.token) S.sessao = s;
+    S.sessao = sessao;
     const e = await idb.get('kv', 'estado');
     if (e) CHAVES_ESTADO.forEach(k => { if (e[k] !== undefined) S[k] = e[k]; });
   } catch (e) { /* começa vazio */ }
