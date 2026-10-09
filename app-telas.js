@@ -84,6 +84,7 @@ AC['login-convite'] = () => {
     const u = new URL(v);
     const g = u.searchParams.get('g'), a = u.searchParams.get('api');
     if (!g || !a) throw new Error();
+    if (!apiValida(a)) { toast('Este link não aponta para um servidor do Rumo (Apps Script).', { ms: 7000 }); return; }
     S.codigo = g.toUpperCase(); S.api = a;
     lsSet('codigo', S.codigo); lsSet('api', S.api);
     idb.set('kv', 'conexao', { api: S.api, codigo: S.codigo }).catch(() => { });
@@ -752,7 +753,7 @@ AC['abrir-votacao'] = el => {
         ${ops.map(o => { const vs = votos.filter(x => x.OpcaoID === o.ID); const meu = vs.find(x => x.PessoaID === euId());
           return `<div class="cartao ${v.Status === 'aberta' && podeEditar() ? 'toque' : ''}" ${v.Status === 'aberta' && podeEditar() ? `data-a="votar" data-id="${o.ID}"` : ''} style="${meu ? 'border-color:var(--acao);outline:2px solid var(--acao)' : ''}${v.OpcaoEscolhidaID === o.ID ? ';background:var(--ok-suave)' : ''}">
             <div style="display:flex;justify-content:space-between;gap:8px"><b>${v.OpcaoEscolhidaID === o.ID ? '✅ ' : ''}${esc(o.Titulo)}</b><span>${vs.length} ${meu ? '· seu voto' : ''}</span></div>
-            ${o.Preco !== '' && o.Preco !== undefined ? `<div class="peq">${mv(o.Preco, o.Moeda || moedaAcerto())}</div>` : ''}${o.Link ? `<a href="${esc(o.Link)}" target="_blank" rel="noopener" class="peq" onclick="event.stopPropagation()">abrir link</a>` : ''}
+            ${o.Preco !== '' && o.Preco !== undefined ? `<div class="peq">${mv(o.Preco, o.Moeda || moedaAcerto())}</div>` : ''}${urlSegura(o.Link) ? `<a href="${esc(urlSegura(o.Link))}" target="_blank" rel="noopener" class="peq" onclick="event.stopPropagation()">abrir link</a>` : ''}
             <div class="barra-orc"><i style="width:${Math.round(vs.length * 100 / max)}%;background:var(--info)"></i></div>
             <div style="display:flex;gap:4px;margin-top:6px">${vs.map(x => avatar(x.PessoaID, 26)).join('')}</div></div>`; }).join('')}`;
     },
@@ -849,8 +850,10 @@ AC['doc-abrir'] = async el => {
   const id = el.dataset.id;
   const reg = ach('Anexos', id);
   if (reg && reg.Url && reg.TemArquivo !== 'sim') {
+    const u = urlSegura(reg.Url);
+    if (!u) { toast('Link inválido: só abrimos endereços que começam com http:// ou https://.', { ms: 6000 }); return; }
     if (!navigator.onLine) toast('Sem internet: o link pode não abrir. Para usar sem sinal, anexe o PDF ou um print.', { ms: 6000 });
-    window.open(reg.Url, '_blank', 'noopener');
+    window.open(u, '_blank', 'noopener');
     return;
   }
   toast('Abrindo…', { ms: 20000 });
@@ -905,7 +908,7 @@ AC['abrir-lugar'] = el => {
       ${botoesMapa(l)}
       ${l.Acessibilidade ? `<div class="aviso info">♿ ${esc(l.Acessibilidade)}</div>` : ''}
       ${l.Notas ? `<div class="cartao" style="white-space:pre-wrap">${esc(l.Notas)}</div>` : ''}
-      ${l.Link ? `<p><a href="${esc(l.Link)}" target="_blank" rel="noopener">Abrir link</a></p>` : ''}
+      ${urlSegura(l.Link) ? `<p><a href="${esc(urlSegura(l.Link))}" target="_blank" rel="noopener">Abrir link</a></p>` : ''}
       ${ats.length ? `<div class="rotulo">No roteiro</div><div class="lista">${ats.map(a => itemHtml({ a: 'abrir-atividade', id: a.ID, ic: '🗓️', t: esc(fmtDia(a.Data)), s: esc(a.HoraInicio || '') + ' ' + esc(a.Titulo) })).join('')}</div>` : ''}
       ${anexosDe('lugar', l.ID)}
       ${avs.length ? `<div class="rotulo">Avaliações</div>${avs.map(a => `<div class="cartao"><b>${'★'.repeat(Number(a.Nota))}${'☆'.repeat(5 - Number(a.Nota))}</b> · ${esc(pessoaNome(a.PessoaID))}${a.Voltaria === 'sim' ? ' · voltaria' : a.Voltaria === 'não' ? ' · não voltaria' : ''}${a.Comentario ? `<div class="peq">${esc(a.Comentario)}</div>` : ''}</div>`).join('')}` : ''}`,

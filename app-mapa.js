@@ -598,8 +598,8 @@ function poiHtml() {
     d.endereco ? linha('📍', esc(d.endereco)) : '',
     d.horario ? linha('🕘', esc(d.horario)) : '',
     d.telefone ? linha('☎️', `<a href="tel:${esc(d.telefone)}">${esc(d.telefone)}</a>`) : '',
-    d.site ? linha('🌐', `<a href="${esc(d.site)}" target="_blank" rel="noopener">${esc(d.site.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''))}</a>`) : '',
-    d.wikipedia ? linha('📖', `<a href="${esc(d.wikipedia)}" target="_blank" rel="noopener">Wikipédia</a>`) : '',
+    urlSegura(d.site) ? linha('🌐', `<a href="${esc(urlSegura(d.site))}" target="_blank" rel="noopener">${esc(d.site.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''))}</a>`) : '',
+    urlSegura(d.wikipedia) ? linha('📖', `<a href="${esc(urlSegura(d.wikipedia))}" target="_blank" rel="noopener">Wikipédia</a>`) : '',
     d.acessivel ? linha('♿', esc(d.acessivel)) : ''
   ].join('') : '';
   const dias = diasDaViagem();
